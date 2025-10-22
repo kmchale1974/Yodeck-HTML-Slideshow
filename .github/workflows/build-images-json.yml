@@ -1,3 +1,5 @@
+mkdir -Force .github\workflows
+@'
 name: Build all images.json
 
 on:
@@ -10,7 +12,7 @@ on:
       - "tools/gen_images_json.py"
       - ".github/workflows/build-all-images-json.yml"
   schedule:
-    - cron: "*/30 * * * *"   # every 30 minutes
+    - cron: "*/30 * * * *"
 
 permissions:
   contents: write
@@ -27,28 +29,19 @@ jobs:
           - _Yodeck-HTML-Slideshow_RAEC
           - _Yodeck-HTML-Slideshow_Rec
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-
       - name: Generate images.json for ${{ matrix.section }}
         run: |
-          python tools/gen_images_json.py <<'PY'
+          python - <<'PY'
           from tools.gen_images_json import build_manifest
           import sys
           section = "${{ matrix.section }}"
-          images_dir = f"{section}/images"
-          out_path = f"{section}/images.json"
-          changed = build_manifest(images_dir, out_path)
-          # write a marker file unique to the section
-          with open(f".changed-{section.replace('/','_')}", "w") as f:
-            f.write("1" if changed else "0")
+          changed = build_manifest(f"{section}/images", f"{section}/images.json")
+          open(f".changed-{section.replace('/','_')}", "w").write("1" if changed else "0")
           PY
-
       - name: Commit changes (if any) for ${{ matrix.section }}
         run: |
           CHANGED=$(cat ".changed-${{ matrix.section }}" || echo 0)
@@ -62,4 +55,4 @@ jobs:
             git push
           else
             echo "No manifest changes for ${{ matrix.section }}"
-          fi
+'@ | Set-Content -Encoding UTF8 .github\workflows\build-all-images-json.yml
