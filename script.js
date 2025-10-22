@@ -1,4 +1,10 @@
 (() => {
+const item = items[idx];
+
+
+try {
+await preload(item.url);
+} catch (e) {
 console.warn(e.message);
 logStatus('Skipped failed image');
 return showNext();
