@@ -1,9 +1,7 @@
-mkdir -Force .github\workflows
-@'
-name: Build all images.json
+﻿name: Build all images.json
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
   push:
     paths:
       - "_Yodeck-HTML-Slideshow_Admin/images/**"
@@ -37,7 +35,6 @@ jobs:
         run: |
           python - <<'PY'
           from tools.gen_images_json import build_manifest
-          import sys
           section = "${{ matrix.section }}"
           changed = build_manifest(f"{section}/images", f"{section}/images.json")
           open(f".changed-{section.replace('/','_')}", "w").write("1" if changed else "0")
@@ -55,4 +52,3 @@ jobs:
             git push
           else
             echo "No manifest changes for ${{ matrix.section }}"
-'@ | Set-Content -Encoding UTF8 .github\workflows\build-all-images-json.yml
