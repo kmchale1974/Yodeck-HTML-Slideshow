@@ -1,4 +1,13 @@
 (() => {
+target.cap.textContent = '';
+target.cap.classList.add('hidden');
+}
+}
+
+
+async function showNext() {
+if (!items.length) return;
+idx = (idx + 1) % items.length;
 const item = items[idx];
 
 
