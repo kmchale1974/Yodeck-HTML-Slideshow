@@ -1,0 +1,44 @@
+name: Build images.json
+
+on:
+  workflow_dispatch: {}
+  push:
+    paths:
+      - "images/**"
+      - "tools/gen_images_json.py"
+      - ".github/workflows/build-images-json.yml"
+  schedule:
+    - cron: "*/30 * * * *"  # every 30 minutes
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      TZ: America/Chicago
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Generate images.json
+        run: python tools/gen_images_json.py
+
+      - name: Commit changes (if any)
+        run: |
+          CHANGED=$(cat .imagesjson.changed || echo 0)
+          if [ "$CHANGED" = "1" ]; then
+            git config user.name "gh-actions"
+            git config user.email "actions@users.noreply.github.com"
+            git add images.json
+            git commit -m "chore: update images.json [skip ci]" || echo "Nothing to commit"
+            git push
+          else
+            echo "No manifest changes"
+          fi
