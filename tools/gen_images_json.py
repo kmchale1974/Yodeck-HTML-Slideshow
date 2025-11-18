@@ -1,123 +1,152 @@
-import re, os, json
+import json
+import os
+from pathlib import Path
 from datetime import datetime
 
-VALID_EXT = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
-DEFAULT_DURATION = 8
+VALID_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
 
-# Filename pattern:
-#   <start>_to_<end>__<duration>s__o<order>__<title>.<ext>
-# All parts except title+ext are optional.
-PATTERN = re.compile(
-    r"^(?:(?P<start>\d{4}-\d{2}-\d{2}(?:_\d{2}-\d{2})?)_to_(?P<end>\d{4}-\d{2}-\d{2}(?:_\d{2}-\d{2})?)__)?"
-    r"(?:(?P<dur>\d+)s__)?"
-    r"(?:(?:o(?P<order>\d+)__)?)"
-    r"(?P<title>.+?)\.(?P<ext>png|jpg|jpeg|webp|gif)$",
-    re.IGNORECASE
-)
+def parse_filename(fname: str):
+    """
+    Expected patterns:
+      1) start_to_end__Dur__Title.ext
+         e.g. 2025-11-18_to_2026-01-24__12s__OHara-Woods-Workday.png
+      2) start_to_end_Title.ext  (no explicit duration)
+      3) just Title.ext          (no dates, no duration)
+    Returns dict with optional start, end, durationSeconds, title.
+    """
+    stem, _ext = os.path.splitext(fname)
+    parts = stem.split("__", 2)
 
-def parse_dt(token: str | None) -> datetime | None:
-    """Parse 'YYYY-MM-DD' or 'YYYY-MM-DD_HH-MM' to a naive datetime."""
-    if not token:
+    start = end = None
+    duration = None
+    title_part = None
+
+    # Case 1: date range + duration + title
+    if len(parts) == 3:
+        daterange, dur_part, title_part = parts
+        if "_to_" in daterange:
+            s, e = daterange.split("_to_", 1)
+            start = _safe_date(s)
+            end = _safe_date(e)
+        else:
+            start = _safe_date(daterange)
+        duration = _parse_duration(dur_part)
+    # Case 2: maybe date range + title
+    elif len(parts) == 2:
+        daterange, title_part = parts
+        if "_to_" in daterange:
+            s, e = daterange.split("_to_", 1)
+            start = _safe_date(s)
+            end = _safe_date(e)
+        else:
+            start = _safe_date(daterange)
+    else:
+        # no "__" at all, treat whole stem as title
+        title_part = stem
+
+    title = (title_part or "").replace("-", " ").strip()
+    result = {}
+    if start:
+        # ISO string for JS Date()
+        result["start"] = start.isoformat()
+    if end:
+        # make end end-of-day if only date was given
+        end_dt = datetime(end.year, end.month, end.day, 23, 59, 59)
+        result["end"] = end_dt.isoformat()
+    if duration is not None:
+        result["durationSeconds"] = duration
+    if title:
+        result["title"] = title
+
+    return result
+
+def _safe_date(s: str):
+    s = s.strip()
+    if not s:
         return None
     try:
-        if "_" in token:
-            return datetime.strptime(token, "%Y-%m-%d_%H-%M")
-        return datetime.strptime(token, "%Y-%m-%d")
+        # YYYY-MM-DD
+        return datetime.strptime(s, "%Y-%m-%d")
     except ValueError:
         return None
 
-def human_title(name: str) -> str:
-    """Make a nice title from the filename part."""
-    t = os.path.splitext(name)[0].replace("_", " ").replace("-", " ")
-    return " ".join(t.split())
-
-def build_manifest(images_dir: str, out_path: str) -> bool:
+def _parse_duration(s: str):
     """
-    Scan images_dir, build a sorted manifest, and write to out_path.
-    Returns True if the file changed.
+    '12s' -> 12
+    '8'   -> 8
     """
-    # Ensure folder exists; treat missing as empty rather than crashing.
-    if not os.path.isdir(images_dir):
-        os.makedirs(images_dir, exist_ok=True)
+    s = s.strip().lower()
+    if not s:
+        return None
+    if s.endswith("s"):
+        s = s[:-1]
+    try:
+        val = int(s)
+        if val <= 0:
+            return None
+        return val
+    except ValueError:
+        return None
 
-    files: list[str] = []
-    for root, _, fnames in os.walk(images_dir):
-        for fn in fnames:
-            _, ext = os.path.splitext(fn)
-            if ext.lower() in VALID_EXT:
-                rel = os.path.relpath(os.path.join(root, fn), start=os.getcwd()).replace("\\", "/")
-                files.append(rel)
+def build_manifest(src_dir: str, out_path: str):
+    """
+    Scan src_dir and write a JSON array to out_path.
+    URL is the relative path from repo root, e.g.
+      '_Yodeck-HTML-Slideshow_Admin/images/<file>'
+    """
+    src_path = Path(src_dir)
+    if not src_path.exists():
+        print(f"[gen_images_json] Source does not exist: {src_dir}")
+        return False
 
-    now = datetime.now()  # naive local time on the runner
-    rows = []
+    rel_dir = src_path.as_posix()  # e.g. "_Yodeck-HTML-Slideshow_Admin/images"
 
-    for rel in sorted(files):
-        name = os.path.basename(rel)
-        m = PATTERN.match(name)
-
-        start_dt = end_dt = None
-        duration = DEFAULT_DURATION
-        order_val = None
-        title = human_title(os.path.splitext(name)[0])
-
-        if m:
-            start_dt = parse_dt(m.group("start"))
-            end_dt = parse_dt(m.group("end"))
-            if m.group("dur"):
-                duration = int(m.group("dur"))
-            if m.group("order"):
-                order_val = int(m.group("order"))
-            title = human_title(m.group("title"))
-
-        # Skip expired slides
-        if end_dt and end_dt < now:
+    items = []
+    for f in sorted(src_path.iterdir()):
+        if not f.is_file():
+            continue
+        ext = f.suffix.lower()
+        if ext not in VALID_EXTS:
             continue
 
-        # Map repo path to manifest url (keep 'images/' prefix for client)
-        if rel.startswith(images_dir + "/"):
-            url = rel.replace(images_dir + "/", "images/")
-        else:
-            url = rel
-
+        meta = parse_filename(f.name)
         item = {
-            "url": url,
-            "title": title,
-            "durationSeconds": duration,
+            "url": f"{rel_dir}/{f.name}"
         }
-        if start_dt:
-            item["start"] = start_dt.strftime("%Y-%m-%dT%H:%M:%S")
-        if end_dt:
-            item["end"] = end_dt.strftime("%Y-%m-%dT%H:%M:%S")
-        if order_val is not None:
-            item["order"] = order_val
+        item.update(meta)
+        items.append(item)
 
-        sort_end = end_dt if end_dt else datetime.max
-        sort_order = order_val if order_val is not None else float("inf")
-        rows.append((sort_end, sort_order, title.lower(), item))
+    # sort primarily by end date (soonest expiry first)
+    def sort_key(it):
+        end = it.get("end")
+        if end:
+            try:
+                return datetime.fromisoformat(end)
+            except Exception:
+                pass
+        return datetime.max
 
-    # Sort: soonest end date first, then explicit order, then title
-    rows.sort(key=lambda t: (t[0], t[1], t[2]))
-    manifest = [t[3] for t in rows]
+    items.sort(key=sort_key)
 
-    # Only write if content changed
+    out_file = Path(out_path)
     old = None
-    if os.path.exists(out_path):
+    if out_file.exists():
         try:
-            with open(out_path, "r", encoding="utf-8") as f:
-                old = json.load(f)
+            old = json.loads(out_file.read_text(encoding="utf-8"))
         except Exception:
             old = None
 
-    if old != manifest:
-        os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
-        with open(out_path, "w", encoding="utf-8") as f:
-            json.dump(manifest, f, ensure_ascii=False, indent=2)
-        print(f"Wrote {out_path} with {len(manifest)} items")
-        return True
+    new_json = json.dumps(items, indent=2, ensure_ascii=False)
+    if old is not None:
+        old_json = json.dumps(old, indent=2, ensure_ascii=False)
+        if old_json == new_json:
+            print("[gen_images_json] No changes to manifest.")
+            return False
 
-    print(f"No changes for {out_path}")
-    return False
+    out_file.write_text(new_json, encoding="utf-8")
+    print(f"[gen_images_json] Wrote {len(items)} items to {out_path}")
+    return True
 
 if __name__ == "__main__":
-    # Local test helper
-    build_manifest("images", "images.json")
+    # manual test
+    build_manifest("_Yodeck-HTML-Slideshow_Admin/images", "images.json")
