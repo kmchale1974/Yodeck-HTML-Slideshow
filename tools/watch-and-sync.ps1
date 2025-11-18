@@ -1,9 +1,8 @@
 ﻿# =========================
-# Yodeck Watch & Sync -> Git
-# - Watches NAS folders for Admin/RAEC/Rec
+# Yodeck Watch & Sync -> Git (Simplified)
+# - Watches NAS Admin/RAEC/Rec folders
 # - Copies images into repo subfolders
-# - Batches and git add/commit/push
-# - Does a Startup Sync so existing files are included immediately
+# - Immediately git add/commit/push after each change
 # =========================
 
 # --- CONFIG -------------------------------------------------------
@@ -12,26 +11,17 @@ $Pairs = @(
   @{ Name="RAEC";  Src="\\Vortv-nas\vor-tv_nas media\_Marketing\_Yodeck-HTML-Slideshow_RAEC";  Dst="D:\repos\Yodeck-HTML-Slideshow\_Yodeck-HTML-Slideshow_RAEC\images" },
   @{ Name="Rec";   Src="\\Vortv-nas\vor-tv_nas media\_Marketing\_Yodeck-HTML-Slideshow_Rec";   Dst="D:\repos\Yodeck-HTML-Slideshow\_Yodeck-HTML-Slideshow_Rec\images" }
 )
-# If your RAEC/Rec NAS paths differ, update the Src values above.
+# update RAEC/Rec Src if needed
 
 $RepoRoot = "D:\repos\Yodeck-HTML-Slideshow"
-$GitExe   = "git"   # assumes Git is in PATH
+$GitExe   = "git"
 $ValidExt = ".png",".jpg",".jpeg",".webp",".gif"
-$CommitMessagePrefix = "chore(watch): sync"
-$DebounceMs = 1500   # wait a bit so files finish copying
-
-# --- Batching -----------------------------------------------------
-$Queue  = New-Object System.Collections.Concurrent.ConcurrentQueue[object]
-$Timer  = New-Object System.Timers.Timer
-$Timer.Interval = 3000
-$Timer.AutoReset = $true
-$Timer.Enabled   = $true
 
 # --- FUNCTIONS ----------------------------------------------------
 function Copy-IfComplete($src, $dstDir) {
   try {
     if (!(Test-Path $src)) { return $false }
-    Start-Sleep -Milliseconds $DebounceMs
+    Start-Sleep -Milliseconds 800
     $fi = Get-Item -LiteralPath $src -ErrorAction Stop
     if ($ValidExt -notcontains $fi.Extension.ToLower()) { return $false }
 
@@ -56,35 +46,34 @@ function Remove-IfExists($dstDir, $name) {
   }
 }
 
-function Enqueue-Change($section, $action, $name) {
-  $Queue.Enqueue([PSCustomObject]@{Section=$section; Action=$action; Name=$name; Ts=(Get-Date)})
-}
-
-function Flush-Queue-And-Commit {
-  # drain queue (we just commit everything changed in the working copy)
-  while ($Queue.TryDequeue([ref]$null)) { }
-
+function Commit-And-Push($reason) {
   Push-Location $RepoRoot
   try {
     & $GitExe add -A | Out-Null
     $status = & $GitExe status --porcelain
     if (-not [string]::IsNullOrWhiteSpace($status)) {
-      $msg = "$CommitMessagePrefix at $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+      $msg = "chore(watch:$reason): sync at $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
       Write-Host "---- git status ----"
       $status | Write-Host
-      Write-Host "--------------------"
+      Write-Host "Committing & pushing: $msg"
       & $GitExe commit -m $msg | Out-Null
       & $GitExe push | Out-Null
-      Write-Host "Pushed changes: $msg"
+      Write-Host "Pushed changes OK."
+    } else {
+      Write-Host "No changes to commit for $reason"
     }
+  } catch {
+    Write-Warning "Commit/Push failed for $reason : $($_.Exception.Message)"
   } finally {
     Pop-Location
   }
 }
 
-# Startup sync: copy everything currently in $src into $dst once
-function Sync-Once($srcDir, $dstDir) {
-  if (!(Test-Path $srcDir)) { return }
+function Sync-Once($name, $srcDir, $dstDir) {
+  if (!(Test-Path $srcDir)) {
+    Write-Warning "[$name] StartupSync: source missing: $srcDir"
+    return
+  }
   try {
     New-Item -ItemType Directory -Path $dstDir -Force | Out-Null
     Get-ChildItem -LiteralPath $srcDir -File | ForEach-Object {
@@ -92,34 +81,32 @@ function Sync-Once($srcDir, $dstDir) {
         Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $dstDir $_.Name) -Force
       }
     }
-    Write-Host "[StartupSync] Copied existing files from '$srcDir' to '$dstDir'"
+    Write-Host "[$name] StartupSync: copied existing files from '$srcDir' to '$dstDir'"
+    Commit-And-Push "$name StartupSync"
   } catch {
-    Write-Warning "[StartupSync] Failed for '$srcDir' -> '$dstDir' : $($_.Exception.Message)"
+    Write-Warning "[$name] StartupSync failed: $($_.Exception.Message)"
   }
 }
 
-# Timer tick: if there are pending changes, commit them
-$Timer.Add_Elapsed({
-  if (-not $Queue.IsEmpty) {
-    Flush-Queue-And-Commit
-  }
-})
-
-# --- WATCHERS (with existence checks + startup sync) --------------
+# --- WATCHERS -----------------------------------------------------
 $watchers = @()
+
 foreach ($p in $Pairs) {
-  $src = $p.Src; $dst = $p.Dst
+  $name = $p.Name
+  $src  = $p.Src
+  $dst  = $p.Dst
+
   New-Item -ItemType Directory -Path $dst -Force | Out-Null
 
   if (-not (Test-Path $src)) {
-    Write-Warning "Source missing: $src . This watcher will be skipped until the folder exists."
+    Write-Warning "[$name] Source missing: $src . Watcher skipped."
     continue
   }
 
   try {
     $w = New-Object IO.FileSystemWatcher $src, "*.*"
   } catch {
-    Write-Warning "Could not start watcher for $src : $($_.Exception.Message)"
+    Write-Warning "[$name] Could not start watcher: $($_.Exception.Message)"
     continue
   }
 
@@ -127,55 +114,55 @@ foreach ($p in $Pairs) {
   $w.EnableRaisingEvents   = $true
 
   # Created
-  Register-ObjectEvent $w Created -SourceIdentifier "created_$($p.Name)" -Action {
+  Register-ObjectEvent $w Created -SourceIdentifier "created_$name" -Action {
     if (Copy-IfComplete $Event.SourceEventArgs.FullPath $using:dst) {
-      Enqueue-Change $using:p.Name "Created" $Event.SourceEventArgs.Name
-      Write-Host "[$($using:p.Name)] Created: $($Event.SourceEventArgs.Name)"
+      Write-Host "[$($using:name)] Created: $($Event.SourceEventArgs.Name)"
+      Commit-And-Push "$($using:name) Created"
     }
   } | Out-Null
 
   # Changed
-  Register-ObjectEvent $w Changed -SourceIdentifier "changed_$($p.Name)" -Action {
+  Register-ObjectEvent $w Changed -SourceIdentifier "changed_$name" -Action {
     if (Copy-IfComplete $Event.SourceEventArgs.FullPath $using:dst) {
-      Enqueue-Change $using:p.Name "Changed" $Event.SourceEventArgs.Name
-      Write-Host "[$($using:p.Name)] Changed: $($Event.SourceEventArgs.Name)"
+      Write-Host "[$($using:name)] Changed: $($Event.SourceEventArgs.Name)"
+      Commit-And-Push "$($using:name) Changed"
     }
   } | Out-Null
 
   # Renamed
-  Register-ObjectEvent $w Renamed -SourceIdentifier "renamed_$($p.Name)" -Action {
+  Register-ObjectEvent $w Renamed -SourceIdentifier "renamed_$name" -Action {
     if (Copy-IfComplete $Event.SourceEventArgs.FullPath $using:dst) {
-      Enqueue-Change $using:p.Name "Renamed" $Event.SourceEventArgs.Name
-      Write-Host "[$($using:p.Name)] Renamed: $($Event.SourceEventArgs.Name)"
+      Write-Host "[$($using:name)] Renamed: $($Event.SourceEventArgs.Name)"
+      Commit-And-Push "$($using:name) Renamed"
     }
     $old = $Event.SourceEventArgs.OldName
     if ($old) {
       if (Remove-IfExists $using:dst $old) {
-        Enqueue-Change $using:p.Name "RemovedOldName" $old
-        Write-Host "[$($using:p.Name)] Removed old name: $old"
+        Write-Host "[$($using:name)] Removed old name: $old"
+        Commit-And-Push "$($using:name) RemovedOldName"
       }
     }
   } | Out-Null
 
   # Deleted
-  Register-ObjectEvent $w Deleted -SourceIdentifier "deleted_$($p.Name)" -Action {
+  Register-ObjectEvent $w Deleted -SourceIdentifier "deleted_$name" -Action {
     if (Remove-IfExists $using:dst $Event.SourceEventArgs.Name) {
-      Enqueue-Change $using:p.Name "Deleted" $Event.SourceEventArgs.Name
-      Write-Host "[$($using:p.Name)] Deleted: $($Event.SourceEventArgs.Name)"
+      Write-Host "[$($using:name)] Deleted: $($Event.SourceEventArgs.Name)"
+      Commit-And-Push "$($using:name) Deleted"
     }
   } | Out-Null
 
   $watchers += $w
   Write-Host "Watching $src  →  $dst"
 
-  # === 3C: STARTUP SYNC + enqueue a commit ===
-  Sync-Once $src $dst
-  Enqueue-Change $p.Name "StartupSync" "*"
+  # One-time startup sync for this section
+  Sync-Once $name $src $dst
 }
 
 if ($watchers.Count -eq 0) {
-  Write-Warning "No watchers started. Verify your UNC paths or map a drive (New-PSDrive) and update Src paths."
+  Write-Warning "No watchers started. Verify NAS paths."
+} else {
+  Write-Host "Watchers running. Press Ctrl+C to stop."
 }
 
-Write-Host "Watchers running. Press Ctrl+C to stop."
 while ($true) { Start-Sleep -Seconds 1 }
