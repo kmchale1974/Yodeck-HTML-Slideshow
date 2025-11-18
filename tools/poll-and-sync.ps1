@@ -2,17 +2,17 @@
 # Yodeck Poll & Sync -> Git (Admin only)
 # - Every INTERVAL seconds:
 #   - Mirrors NAS Admin folder into local images folder
-#   - git add/commit/push if anything changed
+#   - git add/commit, pull --rebase, push if anything changed
 # =========================
 
 # --- CONFIG -------------------------------------------------------
-$Name    = "Admin"
-$Src     = "\\Vortv-nas\vor-tv_nas media\_Marketing\_Yodeck-HTML-Slideshow_Admin"
-$Dst     = "D:\repos\Yodeck-HTML-Slideshow\_Yodeck-HTML-Slideshow_Admin\images"
+$Name     = "Admin"
+$Src      = "\\Vortv-nas\vor-tv_nas media\_Marketing\_Yodeck-HTML-Slideshow_Admin"
+$Dst      = "D:\repos\Yodeck-HTML-Slideshow\_Yodeck-HTML-Slideshow_Admin\images"
 $RepoRoot = "D:\repos\Yodeck-HTML-Slideshow"
 $GitExe   = "git"
 $ValidExt = ".png",".jpg",".jpeg",".webp",".gif"
-$IntervalSeconds = 60  # how often to scan
+$IntervalSeconds = 300  # how often to scan (5 minutes)
 
 # --- FUNCTIONS ----------------------------------------------------
 function Commit-And-Push($reason) {
@@ -20,19 +20,25 @@ function Commit-And-Push($reason) {
   try {
     & $GitExe add -A | Out-Null
     $status = & $GitExe status --porcelain
+
     if (-not [string]::IsNullOrWhiteSpace($status)) {
       $msg = "chore(poll:$reason): sync at $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
       Write-Host "---- git status ----"
       $status | Write-Host
-      Write-Host "Committing & pushing: $msg"
+      Write-Host "Committing: $msg"
       & $GitExe commit -m $msg | Out-Null
-      & $GitExe push | Out-Null
+
+      Write-Host "Rebasing onto origin/main..."
+      & $GitExe pull --rebase origin main
+
+      Write-Host "Pushing..."
+      & $GitExe push
       Write-Host "Pushed changes OK."
     } else {
       Write-Host "No changes to commit for $reason"
     }
   } catch {
-    Write-Warning "Commit/Push failed for $reason : $($_.Exception.Message)"
+    Write-Warning "Commit/Pull/Push failed for $reason : $($_.Exception.Message)"
   } finally {
     Pop-Location
   }
