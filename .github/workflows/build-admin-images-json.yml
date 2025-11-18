@@ -1,0 +1,42 @@
+﻿name: Build Admin images.json
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "_Yodeck-HTML-Slideshow_Admin/images/**"
+      - "tools/gen_images_json.py"
+      - ".github/workflows/build-admin-images-json.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  build-admin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Generate images.json from Admin images
+        run: |
+          python - <<'PY'
+          from tools.gen_images_json import build_manifest
+          # Build root-level images.json from Admin images folder
+          build_manifest("_Yodeck-HTML-Slideshow_Admin/images", "images.json")
+          PY
+
+      - name: Commit changes if any
+        run: |
+          git config user.name "gh-actions"
+          git config user.email "actions@users.noreply.github.com"
+          git add images.json
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore(admin): update images.json [skip ci]"
+            git push
+          fi
