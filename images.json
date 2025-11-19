@@ -1,7 +1,83 @@
 [
   {
+    "url": "_Yodeck-HTML-Slideshow_Admin/images/2025-11-01_to_2025-11-12__10s__Veterans-Day.png",
+    "start": "2025-11-01T00:00:00",
+    "end": "2025-11-12T23:59:59",
+    "durationSeconds": 10,
+    "title": "Veterans Day"
+  },
+  {
+    "url": "_Yodeck-HTML-Slideshow_Admin/images/2025-11-18_to_2026-01-24__12s__OHara-Woods-Workday.png",
+    "start": "2025-11-18T00:00:00",
+    "end": "2026-01-24T23:59:59",
+    "durationSeconds": 12,
+    "title": "OHara Woods Workday"
+  },
+  {
+    "url": "_Yodeck-HTML-Slideshow_Admin/images/2025-11-18_to_2026-04-25__12s__OHara Woods Workday.png",
+    "start": "2025-11-18T00:00:00",
+    "end": "2026-04-25T23:59:59",
+    "durationSeconds": 12,
+    "title": "OHara Woods Workday"
+  },
+  {
+    "url": "_Yodeck-HTML-Slideshow_Admin/images/2025-11-18_to_2026-05-30__12s__WaterQualityReport2024.png",
+    "start": "2025-11-18T00:00:00",
+    "end": "2026-05-30T23:59:59",
+    "durationSeconds": 12,
+    "title": "WaterQualityReport2024"
+  },
+  {
+    "url": "_Yodeck-HTML-Slideshow_Admin/images/2025-11-18_to_2025-11-19_Festival of Lights.png",
+    "title": "2025 11 18_to_2025 11 19_Festival of Lights"
+  },
+  {
+    "url": "_Yodeck-HTML-Slideshow_Admin/images/2025-11-18_to_2025-11-21_OpXmas Registration.png",
+    "title": "2025 11 18_to_2025 11 21_OpXmas Registration"
+  },
+  {
     "url": "_Yodeck-HTML-Slideshow_Admin/images/2025-11-18_to_2025-11-22_HarvestSaturday.png",
-    "title": "Test Slide",
-    "durationSeconds": 8
+    "title": "2025 11 18_to_2025 11 22_HarvestSaturday"
+  },
+  {
+    "url": "_Yodeck-HTML-Slideshow_Admin/images/2025-11-18_to_2025-11-22_OHara Woods Workday.png",
+    "title": "2025 11 18_to_2025 11 22_OHara Woods Workday"
+  },
+  {
+    "url": "_Yodeck-HTML-Slideshow_Admin/images/2025-11-18_to_2025-11-22_WOLD-Dinosaur.png",
+    "title": "2025 11 18_to_2025 11 22_WOLD Dinosaur"
+  },
+  {
+    "url": "_Yodeck-HTML-Slideshow_Admin/images/2025-11-18_to_2025-11-28_Thanksgiving Closed.png",
+    "title": "2025 11 18_to_2025 11 28_Thanksgiving Closed"
+  },
+  {
+    "url": "_Yodeck-HTML-Slideshow_Admin/images/2025-11-18_to_2025-12-01_Property Tax Rebate Program.png",
+    "title": "2025 11 18_to_2025 12 01_Property Tax Rebate Program"
+  },
+  {
+    "url": "_Yodeck-HTML-Slideshow_Admin/images/2025-11-18_to_2025-12-05_Winter Wonderland.png",
+    "title": "2025 11 18_to_2025 12 05_Winter Wonderland"
+  },
+  {
+    "url": "_Yodeck-HTML-Slideshow_Admin/images/2025-11-18_to_2025-12-12_Yard Waste.png",
+    "title": "2025 11 18_to_2025 12 12_Yard Waste"
+  },
+  {
+    "url": "_Yodeck-HTML-Slideshow_Admin/images/2025-11-18_to_2025-12-14_Jingle Bell Splash Bash.png",
+    "title": "2025 11 18_to_2025 12 14_Jingle Bell Splash Bash"
+  },
+  {
+    "url": "_Yodeck-HTML-Slideshow_Admin/images/2025-11-18_to_2025-12-25_Christmas Closed.png",
+    "title": "2025 11 18_to_2025 12 25_Christmas Closed"
+  },
+  {
+    "url": "_Yodeck-HTML-Slideshow_Admin/images/2025-11-18_to_2026-01-01_New Years Closed.png",
+    "title": "2025 11 18_to_2026 01 01_New Years Closed"
+  },
+  {
+    "url": "_Yodeck-HTML-Slideshow_Admin/images/__8s__Test.jpg",
+    "durationSeconds": 8,
+    "title": "Test"
   }
 ]
