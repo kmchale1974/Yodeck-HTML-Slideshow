@@ -1,11 +1,11 @@
 (() => {
   const cfg = window.SS_CONFIG || {};
   // Apply runtime CSS vars
-  document.documentElement.style.setProperty('--fade-ms', cfg.transitionMs + '');
-  document.documentElement.style.setProperty('--fit', cfg.objectFit);
-  document.documentElement.style.setProperty('--bg', cfg.bg);
-  document.documentElement.style.setProperty('--caption-bg', cfg.captionBg);
-  document.documentElement.style.setProperty('--caption-color', cfg.captionColor);
+  document.documentElement.style.setProperty('--fade-ms', String(cfg.transitionMs || 800));
+  document.documentElement.style.setProperty('--fit', cfg.objectFit || 'contain');
+  document.documentElement.style.setProperty('--bg', cfg.bg || '#000000');
+  document.documentElement.style.setProperty('--caption-bg', cfg.captionBg || 'rgba(0,0,0,0.4)');
+  document.documentElement.style.setProperty('--caption-color', cfg.captionColor || '#ffffff');
 
   const statusEl = document.getElementById('status');
   const a = { wrap: document.getElementById('slideA'), img: document.getElementById('imgA'), cap: document.getElementById('capA') };
@@ -19,6 +19,30 @@
   function logStatus(msg) {
     if (!statusEl) return;
     statusEl.textContent = msg;
+  }
+
+  // Normalize manifest URLs to real repo paths
+  function resolveUrl(url) {
+    if (!url) return '';
+    // Absolute URL: use as-is
+    if (/^https?:\/\//i.test(url)) return url;
+
+    // Already a full repo-relative path (Admin/RAEC/Rec variants)
+    if (url.startsWith('_Yodeck-HTML-Slideshow_')) return url;
+
+    // Strip leading slashes
+    url = url.replace(/^\/+/, '');
+
+    // If manifest says "images/..." or just "foo.png", assume Admin images folder
+    if (!url.startsWith('images/')) {
+      // If it's just a filename like "foo.png", pretend it's "images/foo.png"
+      if (!url.includes('/')) {
+        url = 'images/' + url;
+      }
+    }
+
+    // Final Admin path
+    return '_Yodeck-HTML-Slideshow_Admin/' + url;
   }
 
   async function fetchManifest() {
@@ -65,8 +89,8 @@
     });
   }
 
-  function setSlide(target, item) {
-    target.img.src = item.url;
+  function setSlide(target, item, src) {
+    target.img.src = src;
     target.img.alt = item.alt || item.title || '';
     if (cfg.showCaptions && (item.caption || item.title)) {
       target.cap.textContent = item.caption || item.title;
@@ -82,22 +106,24 @@
     idx = (idx + 1) % items.length;
     const item = items[idx];
 
+    const src = resolveUrl(item.url);
+
     try {
       await preload(src);
     } catch (e) {
       console.warn(e.message);
-      logStatus('Skipped failed image');
+      logStatus('Skipped failed image: ' + (item.title || item.url || ''));
 
       // Back off a bit and move on to the next slide instead of tight looping
       clearTimeout(timer);
-      timer = setTimeout(showNext, 1000);
+      timer = setTimeout(showNext, Math.max(1000, (cfg.defaultDuration || 5) * 1000));
       return;
     }
 
     const incoming = usingA ? a : b;
     const outgoing = usingA ? b : a;
 
-    setSlide(incoming, item);
+    setSlide(incoming, item, src);
 
     // Crossfade
     incoming.wrap.classList.add('visible');
@@ -107,7 +133,7 @@
 
     usingA = !usingA;
 
-    const durMs = Math.max(1000, (item.durationSeconds || cfg.defaultDuration) * 1000);
+    const durMs = Math.max(1000, (item.durationSeconds || cfg.defaultDuration || 8) * 1000);
     clearTimeout(timer);
     timer = setTimeout(showNext, durMs);
   }
@@ -133,13 +159,6 @@
     }
   }
 
-  function scheduleRepoll() {
-    setInterval(() => {
-      // Re-pull manifest to pick up new/removed images without reloading the whole page
-      loadAndStart();
-    }, Math.max(1, cfg.refreshMinutes) * 60 * 1000);
-  }
-
   function scheduleHardReloadAtMidnight() {
     if (!cfg.hardReloadAtMidnight) return;
     const now = new Date();
@@ -151,7 +170,6 @@
 
   // Kickoff
   loadAndStart();
-  // Optional: repoll very infrequently if you want (e.g., every 60 minutes)
-  // scheduleRepoll();
+  // No in-page repoll; rely on Yodeck reloads or manual refresh
   scheduleHardReloadAtMidnight();
 })();
