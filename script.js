@@ -83,11 +83,15 @@
     const item = items[idx];
 
     try {
-      await preload(item.url);
+      await preload(src);
     } catch (e) {
       console.warn(e.message);
       logStatus('Skipped failed image');
-      return showNext();
+
+      // Back off a bit and move on to the next slide instead of tight looping
+      clearTimeout(timer);
+      timer = setTimeout(showNext, 1000);
+      return;
     }
 
     const incoming = usingA ? a : b;
