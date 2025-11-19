@@ -22,7 +22,7 @@
   }
 
   async function fetchManifest() {
-    const url = cfg.imagesManifest + (cfg.imagesManifest.includes('?') ? '&' : '?') + '_cb=' + Date.now();
+    const url = cfg.imagesManifest;
     const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) throw new Error('Manifest fetch failed: ' + res.status);
     const json = await res.json();
