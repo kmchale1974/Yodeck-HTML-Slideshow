@@ -151,6 +151,7 @@
 
   // Kickoff
   loadAndStart();
-  scheduleRepoll();
+  // Optional: repoll very infrequently if you want (e.g., every 60 minutes)
+  // scheduleRepoll();
   scheduleHardReloadAtMidnight();
 })();
