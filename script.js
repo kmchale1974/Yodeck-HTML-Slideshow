@@ -120,16 +120,21 @@
       return;
     }
 
-    const incoming = usingA ? a : b;
+        const incoming = usingA ? a : b;
     const outgoing = usingA ? b : a;
 
     setSlide(incoming, item, src);
 
-    // Crossfade
+    // Fade new slide IN on top
     incoming.wrap.classList.add('visible');
     incoming.wrap.setAttribute('aria-hidden', 'false');
-    outgoing.wrap.classList.remove('visible');
-    outgoing.wrap.setAttribute('aria-hidden', 'true');
+
+    // Only hide the old slide AFTER the fade duration
+    const fadeMs = cfg.transitionMs || 800;
+    setTimeout(() => {
+      outgoing.wrap.classList.remove('visible');
+      outgoing.wrap.setAttribute('aria-hidden', 'true');
+    }, fadeMs);
 
     usingA = !usingA;
 
