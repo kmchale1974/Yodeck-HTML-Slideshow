@@ -31,7 +31,7 @@ imagesManifest: new URLSearchParams(location.search).get('manifest') || 'images.
 defaultDuration: parseInt(new URLSearchParams(location.search).get('dur') || '8', 10), // seconds
 transitionMs: parseInt(new URLSearchParams(location.search).get('fade') || '800', 10),
 refreshMinutes: parseInt(new URLSearchParams(location.search).get('refresh') || '10', 10), // re-poll manifest
-showCaptions: (new URLSearchParams(location.search).get('captions') || '1') !== '0',
+showCaptions: (new URLSearchParams(location.search).get('captions') || '0') !== '0',
 objectFit: new URLSearchParams(location.search).get('fit') || 'contain', // contain | cover
 bg: new URLSearchParams(location.search).get('bg') || '#000000',
 captionBg: new URLSearchParams(location.search).get('capbg') || 'rgba(0,0,0,0.4)',
