@@ -10,9 +10,14 @@ body { margin: 0; background: #000; font-family: system-ui, Arial, sans-serif; }
 
 .slideshow { position: fixed; inset: 0; background: var(--bg, #000); overflow: hidden; }
 .slide {
-position: absolute; inset: 0;
-display: grid; place-items: center;
-opacity: 0; transition: opacity var(--fade-ms)ms linear;
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  transition-property: opacity;
+  transition-duration: calc(var(--fade-ms) * 1ms);
+  transition-timing-function: linear;
 }
 .slide.visible { opacity: 1; }
 .slide img { width: 100%; height: 100%; object-fit: var(--fit, contain); }
