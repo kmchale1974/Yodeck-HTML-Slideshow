@@ -8,37 +8,36 @@
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-<div id="app" class="slideshow" aria-live="off">
-<div class="slide" id="slideA" aria-hidden="true">
-<img id="imgA" alt="" />
-<div class="caption" id="capA"></div>
-</div>
-<div class="slide" id="slideB" aria-hidden="true">
-<img id="imgB" alt="" />
-<div class="caption" id="capB"></div>
-</div>
+  <div id="app" class="slideshow" aria-live="off">
+    <div class="slide" id="slideA" aria-hidden="true">
+      <img id="imgA" alt="" />
+      <video id="vidA" playsinline muted loop></video>
+      <div class="caption" id="capA"></div>
+    </div>
+    <div class="slide" id="slideB" aria-hidden="true">
+      <img id="imgB" alt="" />
+      <video id="vidB" playsinline muted loop></video>
+      <div class="caption" id="capB"></div>
+    </div>
 
+    <div id="status" class="status"></div>
+  </div>
 
-<div id="status" class="status"></div>
-</div>
-
-
-<script>
-// Lightweight querystring config
-window.SS_CONFIG = {
-// Default values; can be overridden by query params
-imagesManifest: new URLSearchParams(location.search).get('manifest') || 'images.json',
-defaultDuration: parseInt(new URLSearchParams(location.search).get('dur') || '8', 10), // seconds
-transitionMs: parseInt(new URLSearchParams(location.search).get('fade') || '800', 10),
-refreshMinutes: parseInt(new URLSearchParams(location.search).get('refresh') || '10', 10), // re-poll manifest
-showCaptions: (new URLSearchParams(location.search).get('captions') || '0') !== '0',
-objectFit: new URLSearchParams(location.search).get('fit') || 'contain', // contain | cover
-bg: new URLSearchParams(location.search).get('bg') || '#000000',
-captionBg: new URLSearchParams(location.search).get('capbg') || 'rgba(0,0,0,0.4)',
-captionColor: new URLSearchParams(location.search).get('capcolor') || '#ffffff',
-hardReloadAtMidnight: (new URLSearchParams(location.search).get('hardmidnight') || '1') === '1'
-};
-</script>
-<script src="script.js"></script>
+  <script>
+    // Lightweight querystring config
+    window.SS_CONFIG = {
+      imagesManifest: new URLSearchParams(location.search).get('manifest') || 'images.json',
+      defaultDuration: parseInt(new URLSearchParams(location.search).get('dur') || '8', 10),
+      transitionMs: parseInt(new URLSearchParams(location.search).get('fade') || '800', 10),
+      refreshMinutes: parseInt(new URLSearchParams(location.search).get('refresh') || '10', 10),
+      showCaptions: (new URLSearchParams(location.search).get('captions') || '1') !== '0',
+      objectFit: new URLSearchParams(location.search).get('fit') || 'contain',
+      bg: new URLSearchParams(location.search).get('bg') || '#000000',
+      captionBg: new URLSearchParams(location.search).get('capbg') || 'rgba(0,0,0,0.4)',
+      captionColor: new URLSearchParams(location.search).get('capcolor') || '#ffffff',
+      hardReloadAtMidnight: (new URLSearchParams(location.search).get('hardmidnight') || '1') === '1'
+    };
+  </script>
+  <script src="script.js"></script>
 </body>
 </html>
