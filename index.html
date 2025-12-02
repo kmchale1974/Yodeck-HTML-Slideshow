@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="en">
 <head>
@@ -12,12 +11,12 @@
   <div id="app" class="slideshow" aria-live="off">
     <div class="slide" id="slideA" aria-hidden="true">
       <img id="imgA" alt="" />
-      <video id="vidA" playsinline muted loop></video>
+      <video id="vidA" playsinline muted></video>
       <div class="caption" id="capA"></div>
     </div>
     <div class="slide" id="slideB" aria-hidden="true">
       <img id="imgB" alt="" />
-      <video id="vidB" playsinline muted loop></video>
+      <video id="vidB" playsinline muted></video>
       <div class="caption" id="capB"></div>
     </div>
 
@@ -26,17 +25,18 @@
 
   <script>
     // Lightweight querystring config
+    const qs = new URLSearchParams(location.search);
     window.SS_CONFIG = {
-      imagesManifest: new URLSearchParams(location.search).get('manifest') || 'images.json',
-      defaultDuration: parseInt(new URLSearchParams(location.search).get('dur') || '8', 10),
-      transitionMs: parseInt(new URLSearchParams(location.search).get('fade') || '800', 10),
-      refreshMinutes: parseInt(new URLSearchParams(location.search).get('refresh') || '10', 10),
-      showCaptions: (new URLSearchParams(location.search).get('captions') || '1') !== '0',
-      objectFit: new URLSearchParams(location.search).get('fit') || 'contain',
-      bg: new URLSearchParams(location.search).get('bg') || '#000000',
-      captionBg: new URLSearchParams(location.search).get('capbg') || 'rgba(0,0,0,0.4)',
-      captionColor: new URLSearchParams(location.search).get('capcolor') || '#ffffff',
-      hardReloadAtMidnight: (new URLSearchParams(location.search).get('hardmidnight') || '1') === '1'
+      imagesManifest: qs.get('manifest') || 'images.json',
+      defaultDuration: parseInt(qs.get('dur') || '8', 10),      // seconds
+      transitionMs: parseInt(qs.get('fade') || '800', 10),      // ms
+      refreshMinutes: parseInt(qs.get('refresh') || '10', 10),  // re-poll manifest
+      showCaptions: (qs.get('captions') || '1') !== '0',
+      objectFit: qs.get('fit') || 'contain',                    // contain | cover
+      bg: qs.get('bg') || '#000000',
+      captionBg: qs.get('capbg') || 'rgba(0,0,0,0.4)',
+      captionColor: qs.get('capcolor') || '#ffffff',
+      hardReloadAtMidnight: (qs.get('hardmidnight') || '1') === '1'
     };
   </script>
   <script src="script.js"></script>
