@@ -28,7 +28,7 @@
     const qs = new URLSearchParams(location.search);
     window.SS_CONFIG = {
       imagesManifest: qs.get('manifest') || 'images.json',
-      defaultDuration: parseInt(qs.get('dur') || '8', 10),      // seconds
+      defaultDuration: parseInt(qs.get('dur') || '10', 10),      // seconds
       transitionMs: parseInt(qs.get('fade') || '800', 10),      // ms
       refreshMinutes: parseInt(qs.get('refresh') || '10', 10),  // re-poll manifest
       showCaptions: (qs.get('captions') || '1') !== '0',
