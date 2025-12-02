@@ -1,12 +1,5 @@
 [
   {
-    "url": "_Yodeck-HTML-Slideshow_Admin/images/2025-11-01_to_2025-11-12__10s__Veterans-Day.png",
-    "start": "2025-11-01T00:00:00",
-    "end": "2025-11-12T23:59:59",
-    "durationSeconds": 10,
-    "title": "Veterans Day"
-  },
-  {
     "url": "_Yodeck-HTML-Slideshow_Admin/images/2025-11-18_to_2026-01-24__12s__OHara-Woods-Workday.png",
     "start": "2025-11-18T00:00:00",
     "end": "2026-01-24T23:59:59",
@@ -38,14 +31,6 @@
   {
     "url": "_Yodeck-HTML-Slideshow_Admin/images/2025-11-18_to_2025-11-22_OHara Woods Workday.png",
     "title": "2025 11 18_to_2025 11 22_OHara Woods Workday"
-  },
-  {
-    "url": "_Yodeck-HTML-Slideshow_Admin/images/2025-11-18_to_2025-11-22_WOLD-Dinosaur.png",
-    "title": "2025 11 18_to_2025 11 22_WOLD Dinosaur"
-  },
-  {
-    "url": "_Yodeck-HTML-Slideshow_Admin/images/2025-11-18_to_2025-11-28_Thanksgiving Closed.png",
-    "title": "2025 11 18_to_2025 11 28_Thanksgiving Closed"
   },
   {
     "url": "_Yodeck-HTML-Slideshow_Admin/images/2025-11-18_to_2025-12-01_Property Tax Rebate Program.png",
