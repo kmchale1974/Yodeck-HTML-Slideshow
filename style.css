@@ -48,3 +48,6 @@ body { margin: 0; background: #000; font-family: system-ui, Arial, sans-serif; }
   font-size: 12px; color: #bbb; opacity: .5;
   user-select: none;
 }
+#caption {
+    display: none !important;
+}
