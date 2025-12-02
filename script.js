@@ -38,7 +38,6 @@
     const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) throw new Error('Manifest fetch failed: ' + res.status);
     const json = await res.json();
-    // Supports either array or {items:[...]}
     return Array.isArray(json) ? json : (json.items || []);
   }
 
@@ -81,13 +80,10 @@
     });
   }
 
-  // For video we don't aggressively preload to avoid hammering the Pi / network.
-  // We just ensure the URL is non-empty and let it start loading when shown.
   function preloadItem(item) {
     const src = item.url;
     if (!src) return Promise.reject(new Error('Missing url'));
     if (isVideoItem(item)) {
-      // Could do more advanced video buffering, but this is enough for signage.
       return Promise.resolve(src);
     }
     return preloadImage(src);
@@ -98,16 +94,13 @@
     const captionText = item.caption || item.title || '';
 
     if (isVideo) {
-      // Hide image, show video
       target.img.classList.add('media-hidden');
       target.img.src = '';
       target.vid.classList.remove('media-hidden');
       target.vid.src = addCacheBuster(item.url);
       target.vid.currentTime = 0;
-      // Autoplay, muted, loop are in markup; just kick it
       target.vid.play().catch(() => {});
     } else {
-      // Hide video, show image
       try {
         target.vid.pause();
       } catch (e) {}
@@ -154,13 +147,11 @@
 
     setSlide(incoming, item);
 
-    // Crossfade: fade in incoming, fade out outgoing
     incoming.wrap.classList.add('visible');
     incoming.wrap.setAttribute('aria-hidden', 'false');
     outgoing.wrap.classList.remove('visible');
     outgoing.wrap.setAttribute('aria-hidden', 'true');
 
-    // Pause any video on outgoing slide to save resources
     pauseSlideMedia(outgoing);
 
     usingA = !usingA;
@@ -182,7 +173,6 @@
 
       if (!items.length) {
         logStatus('No active media in manifest');
-        // Hide both slides
         a.wrap.classList.remove('visible'); a.wrap.setAttribute('aria-hidden', 'true');
         b.wrap.classList.remove('visible'); b.wrap.setAttribute('aria-hidden', 'true');
         return;
@@ -191,7 +181,6 @@
       logStatus('Loaded ' + items.length + ' items');
       idx = -1; usingA = true;
 
-      // Ensure initial visibility
       a.wrap.classList.remove('visible'); a.wrap.setAttribute('aria-hidden', 'true');
       b.wrap.classList.remove('visible'); b.wrap.setAttribute('aria-hidden', 'true');
       pauseSlideMedia(a);
@@ -220,7 +209,6 @@
     setTimeout(() => location.reload(), ms);
   }
 
-  // Kickoff
   loadAndStart();
   scheduleRepoll();
   scheduleHardReloadAtMidnight();

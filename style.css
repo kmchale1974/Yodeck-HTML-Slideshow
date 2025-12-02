@@ -30,7 +30,7 @@ body { margin: 0; background: #000; font-family: system-ui, Arial, sans-serif; }
   object-fit: var(--fit, contain);
 }
 
-/* We'll hide the unused media type with this */
+/* Hide the media type we're not using on that slide */
 .media-hidden {
   display: none;
 }
@@ -48,3 +48,4 @@ body { margin: 0; background: #000; font-family: system-ui, Arial, sans-serif; }
   position: absolute; top: 8px; right: 10px;
   font-size: 12px; color: #bbb; opacity: .5; user-select: none;
 }
+
