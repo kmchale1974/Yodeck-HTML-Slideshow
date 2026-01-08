@@ -1,59 +1,5 @@
 [
   {
-    "url": "_Yodeck-HTML-Slideshow_Admin/images/2025-11-18_to_2025-11-19_Festival of Lights.png",
-    "title": "Festival of Lights",
-    "start": "2025-11-18T00:00:00",
-    "end": "2025-11-19T00:00:00"
-  },
-  {
-    "url": "_Yodeck-HTML-Slideshow_Admin/images/2025-11-18_to_2025-11-22_OHara Woods Workday.png",
-    "title": "OHara Woods Workday",
-    "start": "2025-11-18T00:00:00",
-    "end": "2025-11-22T00:00:00"
-  },
-  {
-    "url": "_Yodeck-HTML-Slideshow_Admin/images/2025-11-18_to_2025-12-05_Winter Wonderland.png",
-    "title": "Winter Wonderland",
-    "start": "2025-11-18T00:00:00",
-    "end": "2025-12-05T00:00:00"
-  },
-  {
-    "url": "_Yodeck-HTML-Slideshow_Admin/images/2025-11-18_to_2025-12-12_Yard Waste.png",
-    "title": "Yard Waste",
-    "start": "2025-11-18T00:00:00",
-    "end": "2025-12-12T00:00:00"
-  },
-  {
-    "url": "_Yodeck-HTML-Slideshow_Admin/images/2025-11-18_to_2025-12-14_Jingle Bell Splash Bash.png",
-    "title": "Jingle Bell Splash Bash",
-    "start": "2025-11-18T00:00:00",
-    "end": "2025-12-14T00:00:00"
-  },
-  {
-    "url": "_Yodeck-HTML-Slideshow_Admin/images/2025-11-18_to_2025-12-25_Christmas Closed.png",
-    "title": "Christmas Closed",
-    "start": "2025-11-18T00:00:00",
-    "end": "2025-12-25T00:00:00"
-  },
-  {
-    "url": "_Yodeck-HTML-Slideshow_Admin/images/2025-12-01_to_2025-12-30_IMG_9807.mp4",
-    "title": "IMG 9807",
-    "start": "2025-12-01T00:00:00",
-    "end": "2025-12-30T00:00:00"
-  },
-  {
-    "url": "_Yodeck-HTML-Slideshow_Admin/images/2025-11-18_to_2026-01-01_New Years Closed.png",
-    "title": "New Years Closed",
-    "start": "2025-11-18T00:00:00",
-    "end": "2026-01-01T00:00:00"
-  },
-  {
-    "url": "_Yodeck-HTML-Slideshow_Admin/images/2025-12-01_to_2026-01-01_KeepWreathRed.jpg",
-    "title": "KeepWreathRed",
-    "start": "2025-12-01T00:00:00",
-    "end": "2026-01-01T00:00:00"
-  },
-  {
     "url": "_Yodeck-HTML-Slideshow_Admin/images/2025-11-18_to_2026-01-24__12s__OHara-Woods-Workday.png",
     "title": "OHara-Woods-Workday",
     "start": "2025-11-18T00:00:00",
@@ -73,6 +19,12 @@
     "start": "2025-11-18T00:00:00",
     "end": "2026-05-30T00:00:00",
     "durationSeconds": 12
+  },
+  {
+    "url": "_Yodeck-HTML-Slideshow_Admin/images/2025-12-01_to_2026-12-30_IMG_9807.mp4",
+    "title": "IMG 9807",
+    "start": "2025-12-01T00:00:00",
+    "end": "2026-12-30T00:00:00"
   },
   {
     "url": "_Yodeck-HTML-Slideshow_Admin/images/__8s__Test.jpg",
