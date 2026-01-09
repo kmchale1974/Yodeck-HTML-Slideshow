@@ -1,5 +1,5 @@
 :root {
-  --fade-ms: 500; /* overwritten by JS */
+  --fade-ms: 500ms; /* overwritten by JS */
   --caption-bg: rgba(0,0,0,0.4);
   --caption-color: #fff;
 }
@@ -25,7 +25,7 @@ body {
   position: absolute;
   inset: 0;
   opacity: 0;
-  transition: opacity var(--fade-ms)ms ease;
+  transition: opacity var(--fade-ms) ease;
   will-change: opacity;
   pointer-events: none;
   background: var(--bg, #000);
