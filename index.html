@@ -4,41 +4,44 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Slideshow</title>
+
   <link rel="preload" href="style.css" as="style">
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div id="app" class="slideshow" aria-live="off">
     <div class="slide" id="slideA" aria-hidden="true">
-      <img id="imgA" alt="" />
-      <video id="vidA" playsinline muted></video>
-      <div class="caption" id="capA"></div>
+      <img id="imgA" class="media media-hidden" alt="" />
+      <video id="vidA" class="media media-hidden" muted playsinline preload="metadata"></video>
+      <div class="caption hidden" id="capA"></div>
     </div>
+
     <div class="slide" id="slideB" aria-hidden="true">
-      <img id="imgB" alt="" />
-      <video id="vidB" playsinline muted></video>
-      <div class="caption" id="capB"></div>
+      <img id="imgB" class="media media-hidden" alt="" />
+      <video id="vidB" class="media media-hidden" muted playsinline preload="metadata"></video>
+      <div class="caption hidden" id="capB"></div>
     </div>
 
     <div id="status" class="status"></div>
   </div>
 
   <script>
-    // Lightweight querystring config
     const qs = new URLSearchParams(location.search);
+
+    // Querystring config
     window.SS_CONFIG = {
       imagesManifest: qs.get('manifest') || 'images.json',
-      defaultDuration: parseInt(qs.get('dur') || '10', 10),      // seconds
-      transitionMs: parseInt(qs.get('fade') || '800', 10),      // ms
-      refreshMinutes: parseInt(qs.get('refresh') || '10', 10),  // re-poll manifest
+      defaultDuration: parseInt(qs.get('dur') || '10', 10), // seconds (images only)
+      transitionMs: parseInt(qs.get('fade') || '500', 10),  // fade duration
+      refreshMinutes: parseInt(qs.get('refresh') || '10', 10),
       showCaptions: (qs.get('captions') || '1') !== '0',
-      objectFit: qs.get('fit') || 'contain',                    // contain | cover
+      objectFit: qs.get('fit') || 'contain',               // contain | cover
       bg: qs.get('bg') || '#000000',
       captionBg: qs.get('capbg') || 'rgba(0,0,0,0.4)',
-      captionColor: qs.get('capcolor') || '#ffffff',
-      hardReloadAtMidnight: (qs.get('hardmidnight') || '1') === '1'
+      captionColor: qs.get('capcolor') || '#ffffff'
     };
   </script>
+
   <script src="script.js"></script>
 </body>
 </html>

@@ -1,26 +1,27 @@
 (() => {
   const cfg = window.SS_CONFIG || {};
 
-  // Apply runtime CSS vars
-  document.documentElement.style.setProperty('--fade-ms', String(cfg.transitionMs));
-  document.documentElement.style.setProperty('--fit', cfg.objectFit);
-  document.documentElement.style.setProperty('--bg', cfg.bg);
-  document.documentElement.style.setProperty('--caption-bg', cfg.captionBg);
-  document.documentElement.style.setProperty('--caption-color', cfg.captionColor);
+  // Defaults (make sure dur default is 10 unless overridden by URL)
+  const DEFAULT_IMAGE_SECONDS = cfg.defaultDuration || 10;
+  const FADE_MS = Math.max(0, parseInt(cfg.transitionMs || 500, 10));
+
+  document.documentElement.style.setProperty('--fade-ms', String(FADE_MS));
+  document.documentElement.style.setProperty('--fit', cfg.objectFit || 'contain');
+  document.documentElement.style.setProperty('--bg', cfg.bg || '#000');
 
   const statusEl = document.getElementById('status');
 
-  const a = {
+  const A = {
     wrap: document.getElementById('slideA'),
-    img:  document.getElementById('imgA'),
-    vid:  document.getElementById('vidA'),
-    cap:  document.getElementById('capA'),
+    img: document.getElementById('imgA'),
+    vid: document.getElementById('vidA'),
+    cap: document.getElementById('capA'),
   };
-  const b = {
+  const B = {
     wrap: document.getElementById('slideB'),
-    img:  document.getElementById('imgB'),
-    vid:  document.getElementById('vidB'),
-    cap:  document.getElementById('capB'),
+    img: document.getElementById('imgB'),
+    vid: document.getElementById('vidB'),
+    cap: document.getElementById('capB'),
   };
 
   let items = [];
@@ -29,30 +30,18 @@
   let timer = null;
 
   function logStatus(msg) {
-    if (!statusEl) return;
-    statusEl.textContent = msg;
-  }
-
-  async function fetchManifest() {
-    const base = cfg.imagesManifest || 'images.json';
-    const url  = base + (base.includes('?') ? '&' : '?') + '_cb=' + Date.now();
-    const res  = await fetch(url, { cache: 'no-store' });
-    if (!res.ok) throw new Error('Manifest fetch failed: ' + res.status);
-    const json = await res.json();
-    return Array.isArray(json) ? json : (json.items || []);
+    if (statusEl) statusEl.textContent = msg;
   }
 
   function isActiveNow(it) {
     const now = new Date();
     const startOk = !it.start || (new Date(it.start) <= now);
-    const endOk   = !it.end   || (now <= new Date(it.end));
+    const endOk = !it.end || (now <= new Date(it.end));
     const enabled = it.enabled !== false;
     return enabled && startOk && endOk;
   }
 
-  // Sort:
-  // 1) No end date → first, by title
-  // 2) With end date → by end asc, then start asc, then title
+  // Order: no-expiry first, then soonest-expiring → latest
   function sortItems(arr) {
     return arr.slice().sort((x, y) => {
       const xe = x.end ? new Date(x.end) : null;
@@ -61,94 +50,34 @@
       const xt = (x.title || '').toLowerCase();
       const yt = (y.title || '').toLowerCase();
 
-      // Both have no end → sort by title
-      if (!xe && !ye) {
-        if (xt < yt) return -1;
-        if (xt > yt) return 1;
-        return 0;
-      }
-
-      // x has no end → x first
+      if (!xe && !ye) return xt.localeCompare(yt);
       if (!xe && ye) return -1;
-      // y has no end → y first
       if (xe && !ye) return 1;
 
-      // Both have end dates: soonest expiring first
-      if (xe.getTime() !== ye.getTime()) {
-        return xe.getTime() - ye.getTime();
-      }
+      const d = xe.getTime() - ye.getTime();
+      if (d !== 0) return d;
 
-      // Tie-breaker: start date, then title
-      const xs = x.start ? new Date(x.start) : null;
-      const ys = y.start ? new Date(y.start) : null;
+      const xs = x.start ? new Date(x.start).getTime() : 0;
+      const ys = y.start ? new Date(y.start).getTime() : 0;
+      if (xs !== ys) return xs - ys;
 
-      if (xs && ys && xs.getTime() !== ys.getTime()) {
-        return xs.getTime() - ys.getTime();
-      }
-
-      if (xt < yt) return -1;
-      if (xt > yt) return 1;
-      return 0;
+      return xt.localeCompare(yt);
     });
   }
 
   function inferType(item) {
-    if (item.type === 'image' || item.type === 'video') return item.type;
     const url = (item.url || '').toLowerCase().split('?')[0];
     if (/\.(mp4|webm|ogg|mov)$/i.test(url)) return 'video';
     return 'image';
   }
 
-  function resolveUrl(item) {
-    return item.url;
-  }
-
-  function preloadItem(item) {
-    const kind = inferType(item);
-    const src  = resolveUrl(item);
-
-    if (!src) {
-      return Promise.reject(new Error('No URL for item'));
-    }
-
-    if (kind === 'image') {
-      return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload  = () => resolve(src);
-        img.onerror = () => reject(new Error('Image load failed: ' + src));
-        img.src     = src + (src.includes('?') ? '&' : '?') + '_cb=' + Date.now();
-      });
-    }
-
-    // For video, we don't fully preload to avoid hammering the network.
-    return Promise.resolve(src);
-  }
-
-  function showImage(target, item, src) {
-    // Hide video
-    try { target.vid.pause(); } catch (e) {}
-    target.vid.classList.add('media-hidden');
-    target.vid.removeAttribute('src');
-
-    // Show image
-    target.img.classList.remove('media-hidden');
-    target.img.src = src;
-    target.img.alt = item.alt || item.title || '';
-  }
-
-  function showVideo(target, item, src) {
-    // Hide image
-    target.img.classList.add('media-hidden');
-    target.img.removeAttribute('src');
-
-    // Show video
-    target.vid.classList.remove('media-hidden');
-    target.vid.src = src;
-    target.vid.currentTime = 0;
-    target.vid.muted = true;
-    target.vid.loop = false;
-    target.vid.playsInline = true;
-    target.vid.play().catch(() => {});
+  async function fetchManifest() {
+    const base = cfg.imagesManifest || 'images.json';
+    const url = base + (base.includes('?') ? '&' : '?') + '_cb=' + Date.now();
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) throw new Error('Manifest fetch failed: ' + res.status);
+    const json = await res.json();
+    return Array.isArray(json) ? json : (json.items || []);
   }
 
   function setCaption(target, item) {
@@ -161,111 +90,197 @@
     }
   }
 
-  function scheduleForImage(item) {
-    const durSec = item.durationSeconds || cfg.defaultDuration || 10;
-    const durMs  = Math.max(1000, durSec * 1000);
-    timer = setTimeout(showNext, durMs);
+  function hideMedia(target) {
+    // Hide both, pause video
+    target.img.classList.add('media-hidden');
+    target.img.removeAttribute('src');
+
+    try { target.vid.pause(); } catch {}
+    target.vid.classList.add('media-hidden');
+    target.vid.removeAttribute('src');
+    target.vid.load?.();
   }
 
-  function scheduleForVideo(target, item) {
-    const vid = target.vid;
+  async function prepareImage(target, item) {
+    hideMedia(target);
+
+    const src = item.url;
+    target.img.classList.remove('media-hidden');
+
+    // Preload + decode before showing
+    const preload = new Image();
+    preload.src = src + (src.includes('?') ? '&' : '?') + '_cb=' + Date.now();
+
+    await new Promise((resolve, reject) => {
+      preload.onload = resolve;
+      preload.onerror = () => reject(new Error('Image load failed: ' + src));
+    });
+
+    // Set real element only after preload succeeded
+    target.img.src = src;
+    target.img.alt = item.alt || item.title || '';
+
+    // decode() helps eliminate flash on some browsers
+    if (target.img.decode) {
+      try { await target.img.decode(); } catch {}
+    }
+
+    return src;
+  }
+
+  async function prepareVideo(target, item) {
+    hideMedia(target);
+
+    const src = item.url;
+    target.vid.classList.remove('media-hidden');
+
+    // Set source and wait until we can play a frame
+    target.vid.src = src;
+    target.vid.currentTime = 0;
+    target.vid.muted = true;
+    target.vid.playsInline = true;
+    target.vid.loop = false;
+
+    await new Promise((resolve, reject) => {
+      const onCanPlay = () => { cleanup(); resolve(); };
+      const onErr = () => { cleanup(); reject(new Error('Video load failed: ' + src)); };
+      const cleanup = () => {
+        target.vid.removeEventListener('canplay', onCanPlay);
+        target.vid.removeEventListener('error', onErr);
+      };
+      target.vid.addEventListener('canplay', onCanPlay, { once: true });
+      target.vid.addEventListener('error', onErr, { once: true });
+      target.vid.load();
+    });
+
+    // Start playback (muted autoplay usually OK in browsers and on players)
+    try { await target.vid.play(); } catch {}
+
+    return src;
+  }
+
+  function forceTransitionFrame(el) {
+    // Ensure the browser “sees” opacity 0 before we add visible
+    void el.offsetHeight;
+  }
+
+  async function crossfade(incoming, outgoing) {
+    // Keep outgoing visible until fade completes
+    incoming.wrap.style.zIndex = '2';
+    outgoing.wrap.style.zIndex = '1';
+
+    // Start incoming hidden, then fade in
+    incoming.wrap.classList.remove('visible');
+    forceTransitionFrame(incoming.wrap);
+
+    incoming.wrap.classList.add('visible');
+    incoming.wrap.setAttribute('aria-hidden', 'false');
+    outgoing.wrap.setAttribute('aria-hidden', 'true');
+
+    // After fade, hide outgoing & stop its video to prevent “ghost frame” flashes
+    if (FADE_MS > 0) {
+      await new Promise(r => setTimeout(r, FADE_MS));
+    }
+    outgoing.wrap.classList.remove('visible');
+
+    // Important: only cleanup outgoing media AFTER fade completes
+    try { outgoing.vid.pause(); } catch {}
+    outgoing.vid.removeAttribute('src');
+    outgoing.vid.load?.();
+    outgoing.img.removeAttribute('src');
+  }
+
+  function scheduleNextForImage(item) {
+    const sec = item.durationSeconds || DEFAULT_IMAGE_SECONDS;
+    const ms = Math.max(1000, sec * 1000);
+    clearTimeout(timer);
+    timer = setTimeout(showNext, ms);
+  }
+
+  function scheduleNextForVideo(target, item) {
     clearTimeout(timer);
 
-    // If you ever encode a manual duration, this will respect it.
+    // If naming convention overrides duration for a video, respect it
     if (item.durationSeconds) {
-      const durMs = Math.max(1000, item.durationSeconds * 1000);
-      timer = setTimeout(showNext, durMs);
+      timer = setTimeout(showNext, Math.max(1000, item.durationSeconds * 1000));
       return;
     }
 
-    function startTimerFromVideo() {
-      if (!isFinite(vid.duration) || vid.duration <= 1) {
-        // Fallback to default if duration missing
-        const fallbackSec = cfg.defaultDuration || 10;
-        timer = setTimeout(showNext, fallbackSec * 1000);
-        return;
-      }
-      timer = setTimeout(showNext, vid.duration * 1000);
-    }
+    const v = target.vid;
 
-    if (isFinite(vid.duration) && vid.duration > 1) {
-      startTimerFromVideo();
-    } else {
-      const onMeta = () => {
-        vid.removeEventListener('loadedmetadata', onMeta);
-        startTimerFromVideo();
-      };
-      vid.addEventListener('loadedmetadata', onMeta);
-    }
+    const startTimer = () => {
+      const d = v.duration;
+      if (!isFinite(d) || d <= 0.5) {
+        timer = setTimeout(showNext, DEFAULT_IMAGE_SECONDS * 1000);
+      } else {
+        timer = setTimeout(showNext, d * 1000);
+      }
+    };
+
+    if (isFinite(v.duration) && v.duration > 0.5) startTimer();
+    else v.addEventListener('loadedmetadata', startTimer, { once: true });
   }
 
   async function showNext() {
     if (!items.length) return;
-
     clearTimeout(timer);
 
     idx = (idx + 1) % items.length;
     const item = items[idx];
     const kind = inferType(item);
-    const src  = resolveUrl(item);
 
-    let loadedSrc;
+    const incoming = usingA ? A : B;
+    const outgoing = usingA ? B : A;
+
     try {
-      loadedSrc = await preloadItem(item);
+      setCaption(incoming, item);
+
+      // Prepare media fully BEFORE any fade begins
+      if (kind === 'video') {
+        await prepareVideo(incoming, item);
+      } else {
+        await prepareImage(incoming, item);
+      }
+
+      // Now crossfade smoothly
+      await crossfade(incoming, outgoing);
+
+      // Schedule next
+      usingA = !usingA;
+
+      if (kind === 'video') scheduleNextForVideo(incoming, item);
+      else scheduleNextForImage(item);
+
     } catch (e) {
       console.warn(e.message || e);
       logStatus('Skipped failed media');
-      if (items.length > 1) return showNext();
-      return;
-    }
 
-    const incoming = usingA ? a : b;
-    const outgoing = usingA ? b : a;
-
-    if (kind === 'video') {
-      showVideo(incoming, item, loadedSrc);
-    } else {
-      showImage(incoming, item, loadedSrc);
-    }
-    setCaption(incoming, item);
-
-    // Crossfade layers
-    incoming.wrap.classList.add('visible');
-    incoming.wrap.setAttribute('aria-hidden', 'false');
-    outgoing.wrap.classList.remove('visible');
-    outgoing.wrap.setAttribute('aria-hidden', 'true');
-
-    usingA = !usingA;
-
-    // Schedule next slide
-    if (kind === 'video') {
-      scheduleForVideo(incoming, item);
-    } else {
-      scheduleForImage(item);
+      // Avoid rapid-fire loops when something fails
+      clearTimeout(timer);
+      timer = setTimeout(showNext, 800);
     }
   }
 
   async function loadAndStart() {
     try {
       const manifest = await fetchManifest();
-      const filtered = manifest.filter(isActiveNow);
-      items = sortItems(filtered);
+      items = sortItems(manifest.filter(isActiveNow));
 
       if (!items.length) {
-        logStatus('No active items in manifest');
-        a.wrap.classList.remove('visible'); a.wrap.setAttribute('aria-hidden', 'true');
-        b.wrap.classList.remove('visible'); b.wrap.setAttribute('aria-hidden', 'true');
-        clearTimeout(timer);
+        logStatus('No active items');
+        A.wrap.classList.remove('visible');
+        B.wrap.classList.remove('visible');
+        hideMedia(A); hideMedia(B);
         return;
       }
 
-      logStatus('Loaded ' + items.length + ' items');
+      logStatus(`Loaded ${items.length} items`);
       idx = -1;
       usingA = true;
-      clearTimeout(timer);
 
-      a.wrap.classList.remove('visible'); a.wrap.setAttribute('aria-hidden', 'true');
-      b.wrap.classList.remove('visible'); b.wrap.setAttribute('aria-hidden', 'true');
+      // Clear both layers
+      A.wrap.classList.remove('visible'); A.wrap.setAttribute('aria-hidden', 'true'); hideMedia(A);
+      B.wrap.classList.remove('visible'); B.wrap.setAttribute('aria-hidden', 'true'); hideMedia(B);
 
       showNext();
     } catch (err) {
@@ -274,24 +289,12 @@
     }
   }
 
+  // Repoll manifest without hard-resetting the player mid-fade
   function scheduleRepoll() {
     const minutes = Math.max(1, cfg.refreshMinutes || 10);
-    setInterval(() => {
-      loadAndStart();
-    }, minutes * 60 * 1000);
+    setInterval(() => loadAndStart(), minutes * 60 * 1000);
   }
 
-  function scheduleHardReloadAtMidnight() {
-    if (!cfg.hardReloadAtMidnight) return;
-    const now  = new Date();
-    const next = new Date(now);
-    next.setHours(24, 0, 0, 0);
-    const ms = next.getTime() - now.getTime();
-    setTimeout(() => location.reload(), ms);
-  }
-
-  // Kickoff
   loadAndStart();
   scheduleRepoll();
-  scheduleHardReloadAtMidnight();
 })();
