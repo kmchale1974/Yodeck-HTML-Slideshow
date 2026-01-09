@@ -5,7 +5,7 @@
   const DEFAULT_IMAGE_SECONDS = cfg.defaultDuration || 10;
   const FADE_MS = Math.max(0, parseInt(cfg.transitionMs || 500, 10));
 
-  document.documentElement.style.setProperty('--fade-ms', String(FADE_MS));
+  document.documentElement.style.setProperty('--fade-ms', `${FADE_MS}ms`);
   document.documentElement.style.setProperty('--fit', cfg.objectFit || 'contain');
   document.documentElement.style.setProperty('--bg', cfg.bg || '#000');
 
