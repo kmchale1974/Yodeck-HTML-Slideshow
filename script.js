@@ -1,9 +1,10 @@
 (() => {
   const cfg = window.SS_CONFIG || {};
 
-  // Defaults (make sure dur default is 10 unless overridden by URL)
+  // Defaults
   const DEFAULT_IMAGE_SECONDS = cfg.defaultDuration || 10;
   const FADE_MS = Math.max(0, parseInt(cfg.transitionMs || 500, 10));
+  const VIDEO_START_TIMEOUT_MS = 2500; // grace period for Pi/Chromium to actually start video
 
   document.documentElement.style.setProperty('--fade-ms', `${FADE_MS}ms`);
   document.documentElement.style.setProperty('--fit', cfg.objectFit || 'contain');
@@ -71,9 +72,16 @@
     return 'image';
   }
 
+  // Cache-bust helper (works for relative URLs too)
+  function bust(url) {
+    const u = new URL(url, location.href);
+    u.searchParams.set('_cb', Date.now().toString());
+    return u.toString();
+  }
+
   async function fetchManifest() {
     const base = cfg.imagesManifest || 'images.json';
-    const url = base + (base.includes('?') ? '&' : '?') + '_cb=' + Date.now();
+    const url = bust(base);
     const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) throw new Error('Manifest fetch failed: ' + res.status);
     const json = await res.json();
@@ -91,7 +99,6 @@
   }
 
   function hideMedia(target) {
-    // Hide both, pause video
     target.img.classList.add('media-hidden');
     target.img.removeAttribute('src');
 
@@ -104,23 +111,24 @@
   async function prepareImage(target, item) {
     hideMedia(target);
 
-    const src = item.url;
+    const rawSrc = item.url;
+    const src = bust(rawSrc);
+
     target.img.classList.remove('media-hidden');
 
     // Preload + decode before showing
     const preload = new Image();
-    preload.src = src + (src.includes('?') ? '&' : '?') + '_cb=' + Date.now();
+    preload.src = src;
 
     await new Promise((resolve, reject) => {
       preload.onload = resolve;
-      preload.onerror = () => reject(new Error('Image load failed: ' + src));
+      preload.onerror = () => reject(new Error('Image load failed: ' + rawSrc));
     });
 
-    // Set real element only after preload succeeded
+    // Set real element (also cache-busted)
     target.img.src = src;
     target.img.alt = item.alt || item.title || '';
 
-    // decode() helps eliminate flash on some browsers
     if (target.img.decode) {
       try { await target.img.decode(); } catch {}
     }
@@ -128,48 +136,90 @@
     return src;
   }
 
+  function waitForVideoStart(v, timeoutMs) {
+    // We want "actually playing", not just canplay.
+    return new Promise((resolve, reject) => {
+      let done = false;
+      let lastT = -1;
+
+      const cleanup = () => {
+        v.removeEventListener('playing', onPlaying);
+        v.removeEventListener('error', onError);
+        clearInterval(poll);
+        clearTimeout(to);
+      };
+
+      const finishOk = () => {
+        if (done) return;
+        done = true;
+        cleanup();
+        resolve();
+      };
+
+      const finishErr = (msg) => {
+        if (done) return;
+        done = true;
+        cleanup();
+        reject(new Error(msg));
+      };
+
+      const onPlaying = () => finishOk();
+      const onError = () => finishErr('Video error event');
+
+      v.addEventListener('playing', onPlaying, { once: true });
+      v.addEventListener('error', onError, { once: true });
+
+      // Poll: some builds don’t reliably emit 'playing'
+      const poll = setInterval(() => {
+        if (v.readyState >= 2 && !v.paused) {
+          // If time advances, we’re truly playing
+          const t = v.currentTime || 0;
+          if (lastT >= 0 && t > lastT + 0.01) finishOk();
+          lastT = t;
+        }
+      }, 150);
+
+      const to = setTimeout(() => finishErr('Video did not start within timeout'), timeoutMs);
+    });
+  }
+
   async function prepareVideo(target, item) {
     hideMedia(target);
 
-    const src = item.url;
+    const rawSrc = item.url;
+    const src = bust(rawSrc);
+
     target.vid.classList.remove('media-hidden');
 
-    // Set source and wait until we can play a frame
-    target.vid.src = src;
-    target.vid.currentTime = 0;
+    // Make autoplay as bulletproof as possible
     target.vid.muted = true;
+    target.vid.autoplay = true;
     target.vid.playsInline = true;
     target.vid.loop = false;
+    target.vid.preload = 'auto';
 
-    await new Promise((resolve, reject) => {
-      const onCanPlay = () => { cleanup(); resolve(); };
-      const onErr = () => { cleanup(); reject(new Error('Video load failed: ' + src)); };
-      const cleanup = () => {
-        target.vid.removeEventListener('canplay', onCanPlay);
-        target.vid.removeEventListener('error', onErr);
-      };
-      target.vid.addEventListener('canplay', onCanPlay, { once: true });
-      target.vid.addEventListener('error', onErr, { once: true });
-      target.vid.load();
-    });
+    // Set source (cache-busted) and try to play
+    target.vid.src = src;
+    target.vid.currentTime = 0;
+    target.vid.load();
 
-    // Start playback (muted autoplay usually OK in browsers and on players)
+    // Try to play; some Chromium builds require play() after load()
     try { await target.vid.play(); } catch {}
+
+    // Wait until it *actually starts*
+    await waitForVideoStart(target.vid, VIDEO_START_TIMEOUT_MS);
 
     return src;
   }
 
   function forceTransitionFrame(el) {
-    // Ensure the browser “sees” opacity 0 before we add visible
     void el.offsetHeight;
   }
 
   async function crossfade(incoming, outgoing) {
-    // Keep outgoing visible until fade completes
     incoming.wrap.style.zIndex = '2';
     outgoing.wrap.style.zIndex = '1';
 
-    // Start incoming hidden, then fade in
     incoming.wrap.classList.remove('visible');
     forceTransitionFrame(incoming.wrap);
 
@@ -177,13 +227,12 @@
     incoming.wrap.setAttribute('aria-hidden', 'false');
     outgoing.wrap.setAttribute('aria-hidden', 'true');
 
-    // After fade, hide outgoing & stop its video to prevent “ghost frame” flashes
     if (FADE_MS > 0) {
       await new Promise(r => setTimeout(r, FADE_MS));
     }
     outgoing.wrap.classList.remove('visible');
 
-    // Important: only cleanup outgoing media AFTER fade completes
+    // Cleanup outgoing after fade completes
     try { outgoing.vid.pause(); } catch {}
     outgoing.vid.removeAttribute('src');
     outgoing.vid.load?.();
@@ -200,7 +249,6 @@
   function scheduleNextForVideo(target, item) {
     clearTimeout(timer);
 
-    // If naming convention overrides duration for a video, respect it
     if (item.durationSeconds) {
       timer = setTimeout(showNext, Math.max(1000, item.durationSeconds * 1000));
       return;
@@ -235,17 +283,15 @@
     try {
       setCaption(incoming, item);
 
-      // Prepare media fully BEFORE any fade begins
+      // Prepare fully BEFORE fade
       if (kind === 'video') {
         await prepareVideo(incoming, item);
       } else {
         await prepareImage(incoming, item);
       }
 
-      // Now crossfade smoothly
       await crossfade(incoming, outgoing);
 
-      // Schedule next
       usingA = !usingA;
 
       if (kind === 'video') scheduleNextForVideo(incoming, item);
@@ -255,7 +301,12 @@
       console.warn(e.message || e);
       logStatus('Skipped failed media');
 
-      // Avoid rapid-fire loops when something fails
+      // Make sure we don't get stuck showing a black video element
+      try { incoming.vid.pause(); } catch {}
+      incoming.vid.classList.add('media-hidden');
+      incoming.vid.removeAttribute('src');
+      incoming.vid.load?.();
+
       clearTimeout(timer);
       timer = setTimeout(showNext, 800);
     }
@@ -278,7 +329,6 @@
       idx = -1;
       usingA = true;
 
-      // Clear both layers
       A.wrap.classList.remove('visible'); A.wrap.setAttribute('aria-hidden', 'true'); hideMedia(A);
       B.wrap.classList.remove('visible'); B.wrap.setAttribute('aria-hidden', 'true'); hideMedia(B);
 
@@ -289,7 +339,6 @@
     }
   }
 
-  // Repoll manifest without hard-resetting the player mid-fade
   function scheduleRepoll() {
     const minutes = Math.max(1, cfg.refreshMinutes || 10);
     setInterval(() => loadAndStart(), minutes * 60 * 1000);
