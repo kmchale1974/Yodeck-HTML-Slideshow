@@ -193,6 +193,7 @@
 
     target.vid.classList.remove('media-hidden');
 
+    const busted = src + (src.includes('?') ? '&' : '?') + '_cb=' + Date.now();
     target.vid.src = busted;
     target.vid.currentTime = 0;
     target.vid.muted = true;
