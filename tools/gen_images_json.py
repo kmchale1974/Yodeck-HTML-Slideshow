@@ -6,7 +6,9 @@ import re
 from datetime import datetime
 
 # Allowed extensions: images + video
-ALLOWED_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".mp4", ".mov", ".webm", ".ogg"}
+VIDEO_EXTS = {".mp4", ".mov", ".webm", ".m4v"}
+IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
+ALLOWED_EXTS = IMAGE_EXTS | VIDEO_EXTS
 
 # Patterns we support:
 # 1) 2025-12-01_to_2025-12-30__12s__Title.png
@@ -45,7 +47,7 @@ NAME_RE_DUR_PREFIX = re.compile(
 )
 
 
-def parse_filename(name):
+def parse_filename(name: str) -> dict:
     """
     Parse a filename into metadata:
     - start, end (optional)
@@ -53,9 +55,7 @@ def parse_filename(name):
     - title
     """
     base, ext = os.path.splitext(name)
-    ext_lower = ext.lower()
 
-    # Default metadata
     meta = {
         "title": base,
         "start": None,
@@ -76,7 +76,6 @@ def parse_filename(name):
         meta["title"] = m.group("title").replace("_", " ").strip()
         meta["start"] = m.group("start")
         meta["end"] = m.group("end")
-        # No duration encoded; we'll fall back later
         return meta
 
     m = NAME_RE_DUR_PREFIX.match(name)
@@ -85,12 +84,11 @@ def parse_filename(name):
         meta["durationSeconds"] = int(m.group("dur"))
         return meta
 
-    # Fallback: just use the base name as title
     meta["title"] = base.replace("_", " ").strip()
     return meta
 
 
-def build_manifest(images_dir, out_json):
+def build_manifest(images_dir: str, out_json: str) -> bool:
     """
     Scan images_dir and write a flat images.json at out_json.
 
@@ -108,15 +106,14 @@ def build_manifest(images_dir, out_json):
         if not os.path.isfile(full):
             continue
 
-        _, ext = os.path.splitext(fname)
-        if ext.lower() not in ALLOWED_EXTS:
+        ext = os.path.splitext(fname)[1].lower()
+        if ext not in ALLOWED_EXTS:
             continue
 
         meta = parse_filename(fname)
 
         # Build URL relative to repo root
-        url = f"{section}/images/{fname}"
-        url = url.replace(os.sep, "/")
+        url = f"{section}/images/{fname}".replace(os.sep, "/")
 
         item = {
             "url": url,
@@ -125,7 +122,6 @@ def build_manifest(images_dir, out_json):
 
         # Start/end as ISO strings if present
         if meta["start"]:
-            # Normalized to "YYYY-MM-DDT00:00:00"
             item["start"] = meta["start"] + "T00:00:00"
         if meta["end"]:
             item["end"] = meta["end"] + "T00:00:00"
@@ -135,9 +131,9 @@ def build_manifest(images_dir, out_json):
 
         items.append(item)
 
-    # Optional: sort by end date (soonest-expiring first), then start, then title
+    # Sort by end date (soonest-expiring first); items without end go last
     def sort_key(it):
-        def parse_date(s):
+        def parse_iso(s):
             if not s:
                 return datetime.max
             try:
@@ -145,14 +141,13 @@ def build_manifest(images_dir, out_json):
             except Exception:
                 return datetime.max
 
-        end = parse_date(it.get("end"))
-        start = parse_date(it.get("start"))
+        end = parse_iso(it.get("end"))
+        start = parse_iso(it.get("start"))
         title = (it.get("title") or "").lower()
         return (end, start, title)
 
     items_sorted = sorted(items, key=sort_key)
 
-    # Write JSON
     with open(out_json, "w", encoding="utf-8") as f:
         json.dump(items_sorted, f, ensure_ascii=False, indent=2)
 
@@ -167,5 +162,5 @@ if __name__ == "__main__":
 
     images_dir = sys.argv[1]
     out_json = sys.argv[2]
-    changed = build_manifest(images_dir, out_json)
-    sys.exit(0 if changed else 0)
+    build_manifest(images_dir, out_json)
+    sys.exit(0)
