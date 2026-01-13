@@ -186,28 +186,36 @@
   async function prepareVideo(target, item) {
     hideMedia(target);
 
-    const rawSrc = item.url;
-    const src = bust(rawSrc);
+    const src = item.url;
+
+    // Cache-bust video the same way we do for image preloads
+    const busted = src + (src.includes('?') ? '&' : '?') + '_cb=' + Date.now();
 
     target.vid.classList.remove('media-hidden');
 
-    // Make autoplay as bulletproof as possible
+    target.vid.src = busted;
+    target.vid.currentTime = 0;
     target.vid.muted = true;
-    target.vid.autoplay = true;
     target.vid.playsInline = true;
     target.vid.loop = false;
-    target.vid.preload = 'auto';
 
-    // Set source (cache-busted) and try to play
-    target.vid.src = src;
-    target.vid.currentTime = 0;
-    target.vid.load();
+    await new Promise((resolve, reject) => {
+      const onCanPlay = () => { cleanup(); resolve(); };
+      const onErr = () => {
+        const err = target.vid.error ? `${target.vid.error.code}` : 'unknown';
+        cleanup();
+        reject(new Error('Video load failed (' + err + '): ' + src));
+      };
+      const cleanup = () => {
+        target.vid.removeEventListener('canplay', onCanPlay);
+        target.vid.removeEventListener('error', onErr);
+      };
+      target.vid.addEventListener('canplay', onCanPlay, { once: true });
+      target.vid.addEventListener('error', onErr, { once: true });
+      target.vid.load();
+    });
 
-    // Try to play; some Chromium builds require play() after load()
     try { await target.vid.play(); } catch {}
-
-    // Wait until it *actually starts*
-    await waitForVideoStart(target.vid, VIDEO_START_TIMEOUT_MS);
 
     return src;
   }
