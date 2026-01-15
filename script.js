@@ -2,54 +2,64 @@
   const cfg = window.SS_CONFIG || {};
 
   // Defaults
-  const DEFAULT_IMAGE_SECONDS = cfg.defaultDuration || 10;
-  const FADE_MS = Math.max(0, parseInt(cfg.transitionMs || 500, 10));
-  const VIDEO_START_TIMEOUT_MS = 2500; // grace period for Pi/Chromium to actually start video
+  const DEFAULT_IMAGE_SECONDS = Number.isFinite(cfg.defaultDuration) ? cfg.defaultDuration : 10;
+  const FADE_MS = Math.max(0, parseInt(cfg.transitionMs ?? 500, 10));
+  const REFRESH_MIN = Math.max(1, parseInt(cfg.refreshMinutes ?? 10, 10));
 
-  document.documentElement.style.setProperty('--fade-ms', `${FADE_MS}ms`);
-  document.documentElement.style.setProperty('--fit', cfg.objectFit || 'contain');
-  document.documentElement.style.setProperty('--bg', cfg.bg || '#000');
+  // Apply CSS vars (optional, safe)
+  document.documentElement.style.setProperty("--fade-ms", `${FADE_MS}ms`);
+  document.documentElement.style.setProperty("--fit", cfg.objectFit || "contain");
+  document.documentElement.style.setProperty("--bg", cfg.bg || "#000");
 
-  const statusEl = document.getElementById('status');
+  const statusEl = document.getElementById("status");
+
+  function logStatus(msg) {
+    if (statusEl) statusEl.textContent = msg || "";
+  }
+
+  function bust(url) {
+    if (!url) return url;
+    const sep = url.includes("?") ? "&" : "?";
+    return `${url}${sep}_cb=${Date.now()}`;
+  }
 
   const A = {
-    wrap: document.getElementById('slideA'),
-    img: document.getElementById('imgA'),
-    vid: document.getElementById('vidA'),
-    cap: document.getElementById('capA'),
+    wrap: document.getElementById("slideA"),
+    img: document.getElementById("imgA"),
+    vid: document.getElementById("vidA"),
+    cap: document.getElementById("capA"),
   };
   const B = {
-    wrap: document.getElementById('slideB'),
-    img: document.getElementById('imgB'),
-    vid: document.getElementById('vidB'),
-    cap: document.getElementById('capB'),
+    wrap: document.getElementById("slideB"),
+    img: document.getElementById("imgB"),
+    vid: document.getElementById("vidB"),
+    cap: document.getElementById("capB"),
   };
 
   let items = [];
   let idx = -1;
   let usingA = true;
   let timer = null;
-
-  function logStatus(msg) {
-    if (statusEl) statusEl.textContent = msg;
-  }
+  let repoll = null;
 
   function isActiveNow(it) {
     const now = new Date();
-    const startOk = !it.start || (new Date(it.start) <= now);
-    const endOk = !it.end || (now <= new Date(it.end));
     const enabled = it.enabled !== false;
+
+    const startOk = !it.start || new Date(it.start) <= now;
+    const endOk = !it.end || now <= new Date(it.end);
+
     return enabled && startOk && endOk;
   }
 
-  // Order: no-expiry first, then soonest-expiring → latest
+  // Order: no-expiry first, then soonest-expiring -> latest, then start, then title
   function sortItems(arr) {
     return arr.slice().sort((x, y) => {
       const xe = x.end ? new Date(x.end) : null;
       const ye = y.end ? new Date(y.end) : null;
 
-      const xt = (x.title || '').toLowerCase();
-      const yt = (y.title || '').toLowerCase();
+      const xt = (x.title || "").toLowerCase();
+      const yt = (y.title || "").toLowerCase();
 
       if (!xe && !ye) return xt.localeCompare(yt);
       if (!xe && ye) return -1;
@@ -67,189 +77,133 @@
   }
 
   function inferType(item) {
-    const url = (item.url || '').toLowerCase().split('?')[0];
-    if (/\.(mp4|webm|ogg|mov)$/i.test(url)) return 'video';
-    return 'image';
-  }
-
-  // Cache-bust helper (works for relative URLs too)
-  function bust(url) {
-    const u = new URL(url, location.href);
-    u.searchParams.set('_cb', Date.now().toString());
-    return u.toString();
+    const url = String(item.url || "").toLowerCase().split("?")[0];
+    if (/\.(mp4|webm|ogg|mov|m4v)$/i.test(url)) return "video";
+    return "image";
   }
 
   async function fetchManifest() {
-    const base = cfg.imagesManifest || 'images.json';
-    const url = bust(base);
-    const res = await fetch(url, { cache: 'no-store' });
-    if (!res.ok) throw new Error('Manifest fetch failed: ' + res.status);
+    const base = cfg.imagesManifest || "images.json";
+    const res = await fetch(bust(base), { cache: "no-store" });
+    if (!res.ok) throw new Error(`Manifest fetch failed: ${res.status} ${res.statusText}`);
     const json = await res.json();
     return Array.isArray(json) ? json : (json.items || []);
   }
 
   function setCaption(target, item) {
-    if (cfg.showCaptions && (item.caption || item.title)) {
-      target.cap.textContent = item.caption || item.title;
-      target.cap.classList.remove('hidden');
+    const text = item.caption || item.title || "";
+    if (cfg.showCaptions && text) {
+      target.cap.textContent = text;
+      target.cap.classList.remove("hidden");
     } else {
-      target.cap.textContent = '';
-      target.cap.classList.add('hidden');
+      target.cap.textContent = "";
+      target.cap.classList.add("hidden");
     }
   }
 
   function hideMedia(target) {
-    target.img.classList.add('media-hidden');
-    target.img.removeAttribute('src');
+    // Image
+    target.img.classList.add("media-hidden");
+    target.img.removeAttribute("src");
+    target.img.alt = "";
 
+    // Video
     try { target.vid.pause(); } catch {}
-    target.vid.classList.add('media-hidden');
-    target.vid.removeAttribute('src');
-    target.vid.load?.();
+    target.vid.classList.add("media-hidden");
+    target.vid.removeAttribute("src");
+    try { target.vid.load(); } catch {}
   }
 
   async function prepareImage(target, item) {
     hideMedia(target);
 
-    const rawSrc = item.url;
-    const src = bust(rawSrc);
+    const src = String(item.url || "");
+    if (!src) throw new Error("Missing image url");
 
-    target.img.classList.remove('media-hidden');
-
-    // Preload + decode before showing
+    // Preload + decode before we show it
     const preload = new Image();
-    preload.src = src;
+    preload.src = bust(src);
 
     await new Promise((resolve, reject) => {
       preload.onload = resolve;
-      preload.onerror = () => reject(new Error('Image load failed: ' + rawSrc));
+      preload.onerror = () => reject(new Error("Image load failed: " + src));
     });
 
-    // Set real element (also cache-busted)
+    target.img.classList.remove("media-hidden");
     target.img.src = src;
-    target.img.alt = item.alt || item.title || '';
+    target.img.alt = item.alt || item.title || "";
 
     if (target.img.decode) {
       try { await target.img.decode(); } catch {}
     }
-
-    return src;
-  }
-
-  function waitForVideoStart(v, timeoutMs) {
-    // We want "actually playing", not just canplay.
-    return new Promise((resolve, reject) => {
-      let done = false;
-      let lastT = -1;
-
-      const cleanup = () => {
-        v.removeEventListener('playing', onPlaying);
-        v.removeEventListener('error', onError);
-        clearInterval(poll);
-        clearTimeout(to);
-      };
-
-      const finishOk = () => {
-        if (done) return;
-        done = true;
-        cleanup();
-        resolve();
-      };
-
-      const finishErr = (msg) => {
-        if (done) return;
-        done = true;
-        cleanup();
-        reject(new Error(msg));
-      };
-
-      const onPlaying = () => finishOk();
-      const onError = () => finishErr('Video error event');
-
-      v.addEventListener('playing', onPlaying, { once: true });
-      v.addEventListener('error', onError, { once: true });
-
-      // Poll: some builds don’t reliably emit 'playing'
-      const poll = setInterval(() => {
-        if (v.readyState >= 2 && !v.paused) {
-          // If time advances, we’re truly playing
-          const t = v.currentTime || 0;
-          if (lastT >= 0 && t > lastT + 0.01) finishOk();
-          lastT = t;
-        }
-      }, 150);
-
-      const to = setTimeout(() => finishErr('Video did not start within timeout'), timeoutMs);
-    });
   }
 
   async function prepareVideo(target, item) {
     hideMedia(target);
 
-    const src = item.url;
+    const src = String(item.url || "");
+    if (!src) throw new Error("Missing video url");
 
-    // Cache-bust video the same way we do for image preloads
-    const busted = src + (src.includes('?') ? '&' : '?') + '_cb=' + Date.now();
-
-    target.vid.classList.remove('media-hidden');
-
-    const busted = src + (src.includes('?') ? '&' : '?') + '_cb=' + Date.now();
-    target.vid.src = busted;
-    target.vid.currentTime = 0;
+    target.vid.classList.remove("media-hidden");
     target.vid.muted = true;
     target.vid.playsInline = true;
     target.vid.loop = false;
+    target.vid.preload = "auto";
+
+    // IMPORTANT: set src, then load, then wait for canplay
+    target.vid.src = bust(src);
+    target.vid.currentTime = 0;
 
     await new Promise((resolve, reject) => {
       const onCanPlay = () => { cleanup(); resolve(); };
-      const onErr = () => {
-        const err = target.vid.error ? `${target.vid.error.code}` : 'unknown';
-        cleanup();
-        reject(new Error('Video load failed (' + err + '): ' + src));
-      };
+      const onErr = () => { cleanup(); reject(new Error("Video load failed: " + src)); };
       const cleanup = () => {
-        target.vid.removeEventListener('canplay', onCanPlay);
-        target.vid.removeEventListener('error', onErr);
+        target.vid.removeEventListener("canplay", onCanPlay);
+        target.vid.removeEventListener("error", onErr);
       };
-      target.vid.addEventListener('canplay', onCanPlay, { once: true });
-      target.vid.addEventListener('error', onErr, { once: true });
+      target.vid.addEventListener("canplay", onCanPlay);
+      target.vid.addEventListener("error", onErr);
       target.vid.load();
     });
 
+    // Start playback (muted autoplay allowed in most kiosk contexts)
     try { await target.vid.play(); } catch {}
-
-    return src;
   }
 
   function forceTransitionFrame(el) {
+    // Force browser to apply initial state before transition
     void el.offsetHeight;
   }
 
   async function crossfade(incoming, outgoing) {
-    incoming.wrap.style.zIndex = '2';
-    outgoing.wrap.style.zIndex = '1';
+    // stacking order
+    incoming.wrap.style.zIndex = "2";
+    outgoing.wrap.style.zIndex = "1";
 
-    incoming.wrap.classList.remove('visible');
+    // start incoming hidden
+    incoming.wrap.classList.remove("visible");
     forceTransitionFrame(incoming.wrap);
 
-    incoming.wrap.classList.add('visible');
-    incoming.wrap.setAttribute('aria-hidden', 'false');
-    outgoing.wrap.setAttribute('aria-hidden', 'true');
+    // fade in
+    incoming.wrap.classList.add("visible");
+    incoming.wrap.setAttribute("aria-hidden", "false");
+    outgoing.wrap.setAttribute("aria-hidden", "true");
 
-    if (FADE_MS > 0) {
-      await new Promise(r => setTimeout(r, FADE_MS));
-    }
-    outgoing.wrap.classList.remove('visible');
+    // wait fade duration
+    if (FADE_MS > 0) await new Promise(r => setTimeout(r, FADE_MS));
 
-    // Cleanup outgoing after fade completes
+    // hide outgoing
+    outgoing.wrap.classList.remove("visible");
+
+    // cleanup outgoing media to prevent ghost frames
     try { outgoing.vid.pause(); } catch {}
-    outgoing.vid.removeAttribute('src');
-    outgoing.vid.load?.();
-    outgoing.img.removeAttribute('src');
+    outgoing.vid.removeAttribute("src");
+    try { outgoing.vid.load(); } catch {}
+    outgoing.img.removeAttribute("src");
   }
 
   function scheduleNextForImage(item) {
-    const sec = item.durationSeconds || DEFAULT_IMAGE_SECONDS;
+    const sec = Number.isFinite(item.durationSeconds) ? item.durationSeconds : DEFAULT_IMAGE_SECONDS;
     const ms = Math.max(1000, sec * 1000);
     clearTimeout(timer);
     timer = setTimeout(showNext, ms);
@@ -258,7 +212,8 @@
   function scheduleNextForVideo(target, item) {
     clearTimeout(timer);
 
-    if (item.durationSeconds) {
+    // Respect explicit duration override if present
+    if (Number.isFinite(item.durationSeconds) && item.durationSeconds > 0) {
       timer = setTimeout(showNext, Math.max(1000, item.durationSeconds * 1000));
       return;
     }
@@ -275,11 +230,12 @@
     };
 
     if (isFinite(v.duration) && v.duration > 0.5) startTimer();
-    else v.addEventListener('loadedmetadata', startTimer, { once: true });
+    else v.addEventListener("loadedmetadata", startTimer, { once: true });
   }
 
   async function showNext() {
     if (!items.length) return;
+
     clearTimeout(timer);
 
     idx = (idx + 1) % items.length;
@@ -292,30 +248,25 @@
     try {
       setCaption(incoming, item);
 
-      // Prepare fully BEFORE fade
-      if (kind === 'video') {
-        await prepareVideo(incoming, item);
-      } else {
-        await prepareImage(incoming, item);
-      }
+      // Prepare the media completely before fading
+      if (kind === "video") await prepareVideo(incoming, item);
+      else await prepareImage(incoming, item);
 
+      // Crossfade
       await crossfade(incoming, outgoing);
 
+      // Flip buffer
       usingA = !usingA;
 
-      if (kind === 'video') scheduleNextForVideo(incoming, item);
+      // Schedule next
+      if (kind === "video") scheduleNextForVideo(incoming, item);
       else scheduleNextForImage(item);
 
+      logStatus(`Loaded ${items.length} items • showing ${idx + 1}/${items.length}`);
+
     } catch (e) {
-      console.warn(e.message || e);
-      logStatus('Skipped failed media');
-
-      // Make sure we don't get stuck showing a black video element
-      try { incoming.vid.pause(); } catch {}
-      incoming.vid.classList.add('media-hidden');
-      incoming.vid.removeAttribute('src');
-      incoming.vid.load?.();
-
+      console.warn(e);
+      logStatus(`Skipped failed media:\n${e?.message || String(e)}`);
       clearTimeout(timer);
       timer = setTimeout(showNext, 800);
     }
@@ -324,47 +275,45 @@
   async function loadAndStart() {
     try {
       const manifest = await fetchManifest();
-      items = sortItems(manifest.filter(isActiveNow));
+      const active = manifest.filter(isActiveNow);
+      items = sortItems(active);
+
+      // Reset state
+      idx = -1;
+      usingA = true;
+
+      // Clear both layers
+      A.wrap.classList.remove("visible"); A.wrap.setAttribute("aria-hidden", "true"); hideMedia(A);
+      B.wrap.classList.remove("visible"); B.wrap.setAttribute("aria-hidden", "true"); hideMedia(B);
 
       if (!items.length) {
-        logStatus('No active items');
-        A.wrap.classList.remove('visible');
-        B.wrap.classList.remove('visible');
-        hideMedia(A); hideMedia(B);
+        logStatus("No active items");
         return;
       }
 
-      function logStatus(msg) {
-      if (statusEl) {
-      statusEl.textContent = msg || '';
-      }
-    }
-
-      A.wrap.classList.remove('visible'); A.wrap.setAttribute('aria-hidden', 'true'); hideMedia(A);
-      B.wrap.classList.remove('visible'); B.wrap.setAttribute('aria-hidden', 'true'); hideMedia(B);
-
+      logStatus(`Loaded ${items.length} items`);
       showNext();
-    } catch (err) {
-  console.error(err);
-  logStatus(
-    'Manifest error:\n' +
-    (err?.message || String(err)) +
-    '\n\nmanifest=' + (cfg.imagesManifest || 'images.json')
-  );
 
-  // Make sure both layers are hidden so status is readable
-  A.wrap.classList.remove('visible');
-  B.wrap.classList.remove('visible');
-  hideMedia(A);
-  hideMedia(B);
-}
+    } catch (err) {
+      console.error(err);
+      logStatus(
+        "Manifest error:\n" +
+        (err?.message || String(err)) +
+        "\n\nmanifest=" + (cfg.imagesManifest || "images.json")
+      );
+    }
   }
 
   function scheduleRepoll() {
-    const minutes = Math.max(1, cfg.refreshMinutes || 10);
-    setInterval(() => loadAndStart(), minutes * 60 * 1000);
+    if (repoll) clearInterval(repoll);
+    repoll = setInterval(() => {
+      // Repoll without forcing a hard crash; if it fails, slideshow keeps current cycle
+      loadAndStart();
+    }, REFRESH_MIN * 60 * 1000);
   }
 
+  // Go
+  logStatus("Loading…");
   loadAndStart();
   scheduleRepoll();
 })();
