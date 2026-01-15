@@ -70,3 +70,18 @@ body {
   opacity: .5;
   user-select: none;
 }
+/* Always show status text so “black screen” has a visible reason */
+#status.status{
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  padding: 14px 18px;
+  font: 700 22px/1.2 Arial, Helvetica, sans-serif;
+  color: #fff;
+  background: rgba(255,0,0,0.45);
+  z-index: 9999;
+  pointer-events: none;
+  display: block;
+  white-space: pre-wrap;
+}
