@@ -1,4 +1,4 @@
-﻿name: Build Admin images.json
+name: Build Admin images.json (Runtime Pi-safe)
 
 on:
   workflow_dispatch:
@@ -7,7 +7,9 @@ on:
   push:
     paths:
       - "_Yodeck-HTML-Slideshow_Admin/images/**"
+      - "_Yodeck-HTML-Slideshow_Runtime/images/.gitkeep"
       - "tools/gen_images_json.py"
+      - "tools/build_runtime_media.sh"
       - ".github/workflows/build-admin-images-json.yml"
 
 permissions:
@@ -16,29 +18,47 @@ permissions:
 jobs:
   build-admin:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Generate images.json from Admin images
+      # Needed to transcode videos into Pi-safe versions
+      - name: Install ffmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      # STEP B output: rebuild _Yodeck-HTML-Slideshow_Runtime/images every run
+      - name: Build Runtime media (copy images + transcode video)
+        run: |
+          bash tools/build_runtime_media.sh
+
+      # ✅ STEP C: generate images.json from the Runtime folder (NOT Admin)
+      - name: Generate images.json from Runtime images
         run: |
           python - <<'PY'
           from tools.gen_images_json import build_manifest
-          # Build root-level images.json from Admin images folder
-          build_manifest("_Yodeck-HTML-Slideshow_Admin/images", "images.json")
+          build_manifest("_Yodeck-HTML-Slideshow_Runtime/images", "images.json")
           PY
 
+      # (Step D lives here, but leaving it included so Step C actually persists)
       - name: Commit changes if any
         run: |
           git config user.name "gh-actions"
           git config user.email "actions@users.noreply.github.com"
-          git add images.json
+
+          git add images.json _Yodeck-HTML-Slideshow_Runtime/images
+
           if git diff --cached --quiet; then
             echo "No changes to commit"
-          else
-            git commit -m "chore(admin): update images.json [skip ci]"
-            git push
+            exit 0
           fi
+
+          git commit -m "chore(runtime): rebuild Pi-safe media + images.json [skip ci]"
+          git push
