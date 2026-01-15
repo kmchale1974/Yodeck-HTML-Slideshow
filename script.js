@@ -334,18 +334,30 @@
         return;
       }
 
-      logStatus(`Loaded ${items.length} items`);
-      idx = -1;
-      usingA = true;
+      function logStatus(msg) {
+      if (statusEl) {
+      statusEl.textContent = msg || '';
+      }
+    }
 
       A.wrap.classList.remove('visible'); A.wrap.setAttribute('aria-hidden', 'true'); hideMedia(A);
       B.wrap.classList.remove('visible'); B.wrap.setAttribute('aria-hidden', 'true'); hideMedia(B);
 
       showNext();
     } catch (err) {
-      console.error(err);
-      logStatus('Manifest error');
-    }
+  console.error(err);
+  logStatus(
+    'Manifest error:\n' +
+    (err?.message || String(err)) +
+    '\n\nmanifest=' + (cfg.imagesManifest || 'images.json')
+  );
+
+  // Make sure both layers are hidden so status is readable
+  A.wrap.classList.remove('visible');
+  B.wrap.classList.remove('visible');
+  hideMedia(A);
+  hideMedia(B);
+}
   }
 
   function scheduleRepoll() {
