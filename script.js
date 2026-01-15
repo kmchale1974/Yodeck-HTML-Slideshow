@@ -6,6 +6,10 @@
   const FADE_MS = Math.max(0, parseInt(cfg.transitionMs ?? 500, 10));
   const REFRESH_MIN = Math.max(1, parseInt(cfg.refreshMinutes ?? 10, 10));
 
+  // Start the transition slightly BEFORE the video ends (hides last-frame freeze)
+  const VIDEO_OUTRO_LEAD_MS = Math.min(800, Math.max(150, Math.floor(FADE_MS * 0.75)));
+  const VIDEO_FAILSAFE_MS = Math.max(1500, DEFAULT_IMAGE_SECONDS * 1000);
+
   // Apply CSS vars (optional, safe)
   document.documentElement.style.setProperty("--fade-ms", `${FADE_MS}ms`);
   document.documentElement.style.setProperty("--fit", cfg.objectFit || "contain");
@@ -45,10 +49,8 @@
   function isActiveNow(it) {
     const now = new Date();
     const enabled = it.enabled !== false;
-
     const startOk = !it.start || new Date(it.start) <= now;
     const endOk = !it.end || now <= new Date(it.end);
-
     return enabled && startOk && endOk;
   }
 
@@ -150,7 +152,7 @@
     target.vid.loop = false;
     target.vid.preload = "auto";
 
-    // IMPORTANT: set src, then load, then wait for canplay
+    // Set src (with cache-bust), then load, then wait for canplay
     target.vid.src = bust(src);
     target.vid.currentTime = 0;
 
@@ -209,28 +211,51 @@
     timer = setTimeout(showNext, ms);
   }
 
+  // VIDEO: schedule the transition slightly BEFORE the end to hide last-frame freeze
   function scheduleNextForVideo(target, item) {
     clearTimeout(timer);
 
+    const v = target.vid;
+    let fired = false;
+
+    const fireOnce = () => {
+      if (fired) return;
+      fired = true;
+      try { v.removeEventListener("ended", onEnded); } catch {}
+      try { v.removeEventListener("error", onEnded); } catch {}
+      showNext();
+    };
+
+    const onEnded = () => fireOnce();
+
+    // Safety nets
+    v.addEventListener("ended", onEnded, { once: true });
+    v.addEventListener("error", onEnded, { once: true });
+
     // Respect explicit duration override if present
     if (Number.isFinite(item.durationSeconds) && item.durationSeconds > 0) {
-      timer = setTimeout(showNext, Math.max(1000, item.durationSeconds * 1000));
+      timer = setTimeout(fireOnce, Math.max(1000, item.durationSeconds * 1000));
       return;
     }
 
-    const v = target.vid;
-
-    const startTimer = () => {
+    const scheduleFromDuration = () => {
       const d = v.duration;
+
       if (!isFinite(d) || d <= 0.5) {
-        timer = setTimeout(showNext, DEFAULT_IMAGE_SECONDS * 1000);
-      } else {
-        timer = setTimeout(showNext, d * 1000);
+        timer = setTimeout(fireOnce, VIDEO_FAILSAFE_MS);
+        return;
       }
+
+      // Fade out slightly early
+      const ms = Math.max(500, Math.floor(d * 1000) - VIDEO_OUTRO_LEAD_MS);
+      timer = setTimeout(fireOnce, ms);
     };
 
-    if (isFinite(v.duration) && v.duration > 0.5) startTimer();
-    else v.addEventListener("loadedmetadata", startTimer, { once: true });
+    if (isFinite(v.duration) && v.duration > 0.5) scheduleFromDuration();
+    else v.addEventListener("loadedmetadata", scheduleFromDuration, { once: true });
+
+    // Absolute failsafe (metadata never arrives)
+    setTimeout(() => fireOnce(), Math.floor(VIDEO_FAILSAFE_MS * 1.5));
   }
 
   async function showNext() {
@@ -307,7 +332,6 @@
   function scheduleRepoll() {
     if (repoll) clearInterval(repoll);
     repoll = setInterval(() => {
-      // Repoll without forcing a hard crash; if it fails, slideshow keeps current cycle
       loadAndStart();
     }, REFRESH_MIN * 60 * 1000);
   }
