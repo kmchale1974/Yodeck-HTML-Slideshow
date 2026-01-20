@@ -140,36 +140,52 @@
     }
   }
 
+  // VIDEO: prime a frame before we fade in (prevents "cut" into video on Pi)
   async function prepareVideo(target, item) {
     hideMedia(target);
 
     const src = String(item.url || "");
     if (!src) throw new Error("Missing video url");
 
-    target.vid.classList.remove("media-hidden");
-    target.vid.muted = true;
-    target.vid.playsInline = true;
-    target.vid.loop = false;
-    target.vid.preload = "auto";
+    const v = target.vid;
 
-    // Set src (with cache-bust), then load, then wait for canplay
-    target.vid.src = bust(src);
-    target.vid.currentTime = 0;
+    v.classList.remove("media-hidden");
+    v.muted = true;
+    v.playsInline = true;
+    v.loop = false;
+    v.preload = "auto";
 
+    // Set src (cache-busted) and load
+    v.src = bust(src);
+    v.currentTime = 0;
+
+    // Wait until we have enough data to paint a frame
     await new Promise((resolve, reject) => {
-      const onCanPlay = () => { cleanup(); resolve(); };
+      const onLoadedData = () => { cleanup(); resolve(); };
       const onErr = () => { cleanup(); reject(new Error("Video load failed: " + src)); };
       const cleanup = () => {
-        target.vid.removeEventListener("canplay", onCanPlay);
-        target.vid.removeEventListener("error", onErr);
+        v.removeEventListener("loadeddata", onLoadedData);
+        v.removeEventListener("error", onErr);
       };
-      target.vid.addEventListener("canplay", onCanPlay);
-      target.vid.addEventListener("error", onErr);
-      target.vid.load();
+      v.addEventListener("loadeddata", onLoadedData, { once: true });
+      v.addEventListener("error", onErr, { once: true });
+      v.load();
     });
 
-    // Start playback (muted autoplay allowed in most kiosk contexts)
-    try { await target.vid.play(); } catch {}
+    // Prime the first frame: seek slightly in, pause, so fade-in has a real frame
+    try {
+      const primeTo = 0.05; // 50ms into the clip
+      v.currentTime = primeTo;
+
+      await new Promise((resolve) => {
+        const done = () => resolve();
+        v.addEventListener("seeked", done, { once: true });
+        // fallback in case seeked doesn't fire
+        setTimeout(done, 250);
+      });
+
+      try { v.pause(); } catch {}
+    } catch {}
   }
 
   function forceTransitionFrame(el) {
@@ -277,8 +293,18 @@
       if (kind === "video") await prepareVideo(incoming, item);
       else await prepareImage(incoming, item);
 
-      // Crossfade
-      await crossfade(incoming, outgoing);
+      // Start fade
+      const fadePromise = crossfade(incoming, outgoing);
+
+      // If video, begin playback just after fade starts (helps avoid "cut" on Pi)
+      if (kind === "video") {
+        setTimeout(() => {
+          try { incoming.vid.play(); } catch {}
+        }, Math.min(80, FADE_MS));
+      }
+
+      // Wait for fade to complete
+      await fadePromise;
 
       // Flip buffer
       usingA = !usingA;
