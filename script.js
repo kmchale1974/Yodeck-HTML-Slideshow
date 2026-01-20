@@ -21,10 +21,26 @@
     if (statusEl) statusEl.textContent = msg || "";
   }
 
+  // Bust cache for MANIFEST fetches (fine to be "always new")
   function bust(url) {
     if (!url) return url;
     const sep = url.includes("?") ? "&" : "?";
     return `${url}${sep}_cb=${Date.now()}`;
+  }
+
+  // Cache-bust tokens that stay stable for one full playlist loop
+  const mediaToken = new Map(); // url -> token
+  function getTokenFor(url) {
+    if (!mediaToken.has(url)) mediaToken.set(url, String(Date.now()));
+    return mediaToken.get(url);
+  }
+  function resetTokensForNewLoop() {
+    mediaToken.clear();
+  }
+  function bustWithToken(url) {
+    if (!url) return url;
+    const sep = url.includes("?") ? "&" : "?";
+    return `${url}${sep}_cb=${getTokenFor(url)}`;
   }
 
   const A = {
@@ -122,9 +138,9 @@
     const src = String(item.url || "");
     if (!src) throw new Error("Missing image url");
 
-    // Preload + decode before we show it
+    // Preload + decode before we show it (use stable token per loop)
     const preload = new Image();
-    preload.src = bust(src);
+    preload.src = bustWithToken(src);
 
     await new Promise((resolve, reject) => {
       preload.onload = resolve;
@@ -140,52 +156,36 @@
     }
   }
 
-  // VIDEO: prime a frame before we fade in (prevents "cut" into video on Pi)
   async function prepareVideo(target, item) {
     hideMedia(target);
 
     const src = String(item.url || "");
     if (!src) throw new Error("Missing video url");
 
-    const v = target.vid;
+    target.vid.classList.remove("media-hidden");
+    target.vid.muted = true;
+    target.vid.playsInline = true;
+    target.vid.loop = false;
+    target.vid.preload = "auto";
 
-    v.classList.remove("media-hidden");
-    v.muted = true;
-    v.playsInline = true;
-    v.loop = false;
-    v.preload = "auto";
+    // Set src (stable token per loop), then load, then wait for canplay
+    target.vid.src = bustWithToken(src);
+    target.vid.currentTime = 0;
 
-    // Set src (cache-busted) and load
-    v.src = bust(src);
-    v.currentTime = 0;
-
-    // Wait until we have enough data to paint a frame
     await new Promise((resolve, reject) => {
-      const onLoadedData = () => { cleanup(); resolve(); };
+      const onCanPlay = () => { cleanup(); resolve(); };
       const onErr = () => { cleanup(); reject(new Error("Video load failed: " + src)); };
       const cleanup = () => {
-        v.removeEventListener("loadeddata", onLoadedData);
-        v.removeEventListener("error", onErr);
+        target.vid.removeEventListener("canplay", onCanPlay);
+        target.vid.removeEventListener("error", onErr);
       };
-      v.addEventListener("loadeddata", onLoadedData, { once: true });
-      v.addEventListener("error", onErr, { once: true });
-      v.load();
+      target.vid.addEventListener("canplay", onCanPlay);
+      target.vid.addEventListener("error", onErr);
+      target.vid.load();
     });
 
-    // Prime the first frame: seek slightly in, pause, so fade-in has a real frame
-    try {
-      const primeTo = 0.05; // 50ms into the clip
-      v.currentTime = primeTo;
-
-      await new Promise((resolve) => {
-        const done = () => resolve();
-        v.addEventListener("seeked", done, { once: true });
-        // fallback in case seeked doesn't fire
-        setTimeout(done, 250);
-      });
-
-      try { v.pause(); } catch {}
-    } catch {}
+    // Start playback (muted autoplay allowed in most kiosk contexts)
+    try { await target.vid.play(); } catch {}
   }
 
   function forceTransitionFrame(el) {
@@ -279,7 +279,14 @@
 
     clearTimeout(timer);
 
-    idx = (idx + 1) % items.length;
+    // Advance index and detect wrap (last -> first)
+    const nextIdx = (idx + 1) % items.length;
+    const wrapped = (idx >= 0 && nextIdx === 0);
+    idx = nextIdx;
+
+    // New loop: reset media cache-bust tokens so updates still come through over time
+    if (wrapped) resetTokensForNewLoop();
+
     const item = items[idx];
     const kind = inferType(item);
 
@@ -293,18 +300,8 @@
       if (kind === "video") await prepareVideo(incoming, item);
       else await prepareImage(incoming, item);
 
-      // Start fade
-      const fadePromise = crossfade(incoming, outgoing);
-
-      // If video, begin playback just after fade starts (helps avoid "cut" on Pi)
-      if (kind === "video") {
-        setTimeout(() => {
-          try { incoming.vid.play(); } catch {}
-        }, Math.min(80, FADE_MS));
-      }
-
-      // Wait for fade to complete
-      await fadePromise;
+      // Crossfade
+      await crossfade(incoming, outgoing);
 
       // Flip buffer
       usingA = !usingA;
@@ -332,6 +329,7 @@
       // Reset state
       idx = -1;
       usingA = true;
+      resetTokensForNewLoop();
 
       // Clear both layers
       A.wrap.classList.remove("visible"); A.wrap.setAttribute("aria-hidden", "true"); hideMedia(A);
