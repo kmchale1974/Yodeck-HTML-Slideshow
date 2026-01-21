@@ -16,31 +16,12 @@
   document.documentElement.style.setProperty("--bg", cfg.bg || "#000");
 
   const statusEl = document.getElementById("status");
+  const logStatus = (msg) => { if (statusEl) statusEl.textContent = msg || ""; };
 
-  function logStatus(msg) {
-    if (statusEl) statusEl.textContent = msg || "";
-  }
-
-  // Bust cache for MANIFEST fetches (fine to be "always new")
   function bust(url) {
     if (!url) return url;
     const sep = url.includes("?") ? "&" : "?";
     return `${url}${sep}_cb=${Date.now()}`;
-  }
-
-  // Cache-bust tokens that stay stable for one full playlist loop
-  const mediaToken = new Map(); // url -> token
-  function getTokenFor(url) {
-    if (!mediaToken.has(url)) mediaToken.set(url, String(Date.now()));
-    return mediaToken.get(url);
-  }
-  function resetTokensForNewLoop() {
-    mediaToken.clear();
-  }
-  function bustWithToken(url) {
-    if (!url) return url;
-    const sep = url.includes("?") ? "&" : "?";
-    return `${url}${sep}_cb=${getTokenFor(url)}`;
   }
 
   const A = {
@@ -138,9 +119,9 @@
     const src = String(item.url || "");
     if (!src) throw new Error("Missing image url");
 
-    // Preload + decode before we show it (use stable token per loop)
+    // Preload + decode before we show it
     const preload = new Image();
-    preload.src = bustWithToken(src);
+    preload.src = bust(src);
 
     await new Promise((resolve, reject) => {
       preload.onload = resolve;
@@ -168,8 +149,8 @@
     target.vid.loop = false;
     target.vid.preload = "auto";
 
-    // Set src (stable token per loop), then load, then wait for canplay
-    target.vid.src = bustWithToken(src);
+    // Set src (with cache-bust), then load, then wait for canplay
+    target.vid.src = bust(src);
     target.vid.currentTime = 0;
 
     await new Promise((resolve, reject) => {
@@ -179,45 +160,60 @@
         target.vid.removeEventListener("canplay", onCanPlay);
         target.vid.removeEventListener("error", onErr);
       };
-      target.vid.addEventListener("canplay", onCanPlay);
-      target.vid.addEventListener("error", onErr);
+      target.vid.addEventListener("canplay", onCanPlay, { once: true });
+      target.vid.addEventListener("error", onErr, { once: true });
       target.vid.load();
     });
 
-    // Start playback (muted autoplay allowed in most kiosk contexts)
     try { await target.vid.play(); } catch {}
   }
 
-  function forceTransitionFrame(el) {
-    // Force browser to apply initial state before transition
-    void el.offsetHeight;
+  function raf() {
+    return new Promise(r => requestAnimationFrame(() => r()));
   }
 
   async function crossfade(incoming, outgoing) {
-    // stacking order
+    // Force both layers to participate in the fade.
+    // This avoids the Pi sometimes "cutting" when outgoing is removed.
+
+    // Ensure visible state is deterministic
+    incoming.wrap.style.transition = `opacity ${FADE_MS}ms ease`;
+    outgoing.wrap.style.transition = `opacity ${FADE_MS}ms ease`;
+
     incoming.wrap.style.zIndex = "2";
     outgoing.wrap.style.zIndex = "1";
 
-    // start incoming hidden
-    incoming.wrap.classList.remove("visible");
-    forceTransitionFrame(incoming.wrap);
-
-    // fade in
+    // Set starting opacities explicitly
     incoming.wrap.classList.add("visible");
+    outgoing.wrap.classList.add("visible");
+
+    incoming.wrap.style.opacity = "0";
+    outgoing.wrap.style.opacity = "1";
+
     incoming.wrap.setAttribute("aria-hidden", "false");
     outgoing.wrap.setAttribute("aria-hidden", "true");
 
-    // wait fade duration
+    // Two RAFs helps Chromium on Pi reliably commit initial styles
+    await raf();
+    await raf();
+
+    // Animate: incoming 0->1, outgoing 1->0
+    incoming.wrap.style.opacity = "1";
+    outgoing.wrap.style.opacity = "0";
+
     if (FADE_MS > 0) await new Promise(r => setTimeout(r, FADE_MS));
 
-    // hide outgoing
+    // After fade: hide outgoing and cleanup its media
     outgoing.wrap.classList.remove("visible");
+    outgoing.wrap.style.opacity = "";
 
-    // cleanup outgoing media to prevent ghost frames
     try { outgoing.vid.pause(); } catch {}
     outgoing.vid.removeAttribute("src");
     try { outgoing.vid.load(); } catch {}
     outgoing.img.removeAttribute("src");
+
+    // Reset incoming inline opacity so CSS controls it normally
+    incoming.wrap.style.opacity = "";
   }
 
   function scheduleNextForImage(item) {
@@ -227,7 +223,6 @@
     timer = setTimeout(showNext, ms);
   }
 
-  // VIDEO: schedule the transition slightly BEFORE the end to hide last-frame freeze
   function scheduleNextForVideo(target, item) {
     clearTimeout(timer);
 
@@ -237,16 +232,8 @@
     const fireOnce = () => {
       if (fired) return;
       fired = true;
-      try { v.removeEventListener("ended", onEnded); } catch {}
-      try { v.removeEventListener("error", onEnded); } catch {}
       showNext();
     };
-
-    const onEnded = () => fireOnce();
-
-    // Safety nets
-    v.addEventListener("ended", onEnded, { once: true });
-    v.addEventListener("error", onEnded, { once: true });
 
     // Respect explicit duration override if present
     if (Number.isFinite(item.durationSeconds) && item.durationSeconds > 0) {
@@ -256,13 +243,10 @@
 
     const scheduleFromDuration = () => {
       const d = v.duration;
-
       if (!isFinite(d) || d <= 0.5) {
         timer = setTimeout(fireOnce, VIDEO_FAILSAFE_MS);
         return;
       }
-
-      // Fade out slightly early
       const ms = Math.max(500, Math.floor(d * 1000) - VIDEO_OUTRO_LEAD_MS);
       timer = setTimeout(fireOnce, ms);
     };
@@ -270,7 +254,7 @@
     if (isFinite(v.duration) && v.duration > 0.5) scheduleFromDuration();
     else v.addEventListener("loadedmetadata", scheduleFromDuration, { once: true });
 
-    // Absolute failsafe (metadata never arrives)
+    // Backup if metadata never comes
     setTimeout(() => fireOnce(), Math.floor(VIDEO_FAILSAFE_MS * 1.5));
   }
 
@@ -279,14 +263,7 @@
 
     clearTimeout(timer);
 
-    // Advance index and detect wrap (last -> first)
-    const nextIdx = (idx + 1) % items.length;
-    const wrapped = (idx >= 0 && nextIdx === 0);
-    idx = nextIdx;
-
-    // New loop: reset media cache-bust tokens so updates still come through over time
-    if (wrapped) resetTokensForNewLoop();
-
+    idx = (idx + 1) % items.length;
     const item = items[idx];
     const kind = inferType(item);
 
@@ -296,17 +273,13 @@
     try {
       setCaption(incoming, item);
 
-      // Prepare the media completely before fading
       if (kind === "video") await prepareVideo(incoming, item);
       else await prepareImage(incoming, item);
 
-      // Crossfade
       await crossfade(incoming, outgoing);
 
-      // Flip buffer
       usingA = !usingA;
 
-      // Schedule next
       if (kind === "video") scheduleNextForVideo(incoming, item);
       else scheduleNextForImage(item);
 
@@ -323,17 +296,18 @@
   async function loadAndStart() {
     try {
       const manifest = await fetchManifest();
-      const active = manifest.filter(isActiveNow);
-      items = sortItems(active);
+      items = sortItems(manifest.filter(isActiveNow));
 
-      // Reset state
       idx = -1;
       usingA = true;
-      resetTokensForNewLoop();
 
       // Clear both layers
       A.wrap.classList.remove("visible"); A.wrap.setAttribute("aria-hidden", "true"); hideMedia(A);
       B.wrap.classList.remove("visible"); B.wrap.setAttribute("aria-hidden", "true"); hideMedia(B);
+
+      // Clear any inline opacity from prior run
+      A.wrap.style.opacity = "";
+      B.wrap.style.opacity = "";
 
       if (!items.length) {
         logStatus("No active items");
@@ -355,12 +329,9 @@
 
   function scheduleRepoll() {
     if (repoll) clearInterval(repoll);
-    repoll = setInterval(() => {
-      loadAndStart();
-    }, REFRESH_MIN * 60 * 1000);
+    repoll = setInterval(() => loadAndStart(), REFRESH_MIN * 60 * 1000);
   }
 
-  // Go
   logStatus("Loading…");
   loadAndStart();
   scheduleRepoll();
