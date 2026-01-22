@@ -149,7 +149,7 @@
     target.vid.loop = false;
     target.vid.preload = "auto";
 
-    target.vid.src = bust(src);
+    target.vid.src = src;
     target.vid.currentTime = 0;
 
     await new Promise((resolve, reject) => {
