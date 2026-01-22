@@ -1,0 +1,59 @@
+name: Build VillagePublic images.json (Runtime Pi-safe)
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/5 * * * *"
+  push:
+    paths:
+      - "_Yodeck-HTML-Slideshow_VillagePublic/images/**"
+      - "_Yodeck-HTML-Slideshow_Runtime_VillagePublic/images/.gitkeep"
+      - "tools/gen_images_json.py"
+      - "tools/build_runtime_media_villagepublic.sh"
+      - ".github/workflows/build-villagepublic-images-json.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  build-villagepublic:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install ffmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Build Runtime media (VillagePublic)
+        run: |
+          bash tools/build_runtime_media_villagepublic.sh
+
+      - name: Generate images-villagepublic.json from Runtime images
+        run: |
+          python - <<'PY'
+          from tools.gen_images_json import build_manifest
+          build_manifest("_Yodeck-HTML-Slideshow_Runtime_VillagePublic/images", "images-villagepublic.json")
+          PY
+
+      - name: Commit changes if any
+        run: |
+          git config user.name "gh-actions"
+          git config user.email "actions@users.noreply.github.com"
+
+          git add images-villagepublic.json _Yodeck-HTML-Slideshow_Runtime_VillagePublic/images
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+
+          git commit -m "chore(villagepublic): rebuild Pi-safe media + manifest [skip ci]"
+          git push
