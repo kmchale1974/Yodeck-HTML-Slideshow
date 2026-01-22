@@ -10,85 +10,142 @@ VIDEO_EXTS = {".mp4", ".mov", ".webm", ".m4v"}
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
 ALLOWED_EXTS = IMAGE_EXTS | VIDEO_EXTS
 
+# ---- Date/Time token parsing ----
+#
+# Supports:
+#   2026-01-22
+#   2026-01-22T09-30
+#   2026-01-22T0930
+#   2026-01-22T09_30
+#
+DT_TOKEN_RE = re.compile(
+    r"^(?P<date>\d{4}-\d{2}-\d{2})(?:T(?P<h>\d{2})(?:[-_]?)(?P<m>\d{2}))?$"
+)
+
+def normalize_dt_token(token: str):
+    """
+    Return ISO string "YYYY-MM-DDTHH:MM:SS" or None if token is falsy.
+    If only date provided => HH:MM:SS = 00:00:00
+    """
+    if not token:
+        return None
+
+    m = DT_TOKEN_RE.match(token)
+    if not m:
+        return None
+
+    date_part = m.group("date")
+    h = m.group("h")
+    mnt = m.group("m")
+
+    if h is None or mnt is None:
+        # date only
+        return f"{date_part}T00:00:00"
+
+    return f"{date_part}T{h}:{mnt}:00"
+
+
 # Patterns we support:
-# 1) 2025-12-01_to_2025-12-30__12s__Title.png
-# 2) 2025-12-01_to_2025-12-30_Title.png
-# 3) __8s__Title.jpg  (no date window)
+
+# 1) 2026-01-01_to_2026-01-24__12s__Title.png
+# 1b) 2026-01-01T09-30_to_2026-01-24T14-00__12s__Title.png
 NAME_RE_WITH_DUR = re.compile(
     r"""
-    ^(?P<start>\d{4}-\d{2}-\d{2})
+    ^
+    (?P<start>[^_]+)
     _to_
-    (?P<end>\d{4}-\d{2}-\d{2})
+    (?P<end>[^_]+)
     __?(?P<dur>\d+)[sS]?__?
     _?(?P<title>.+)
-    \.(?P<ext>[^.]+)$
+    \.(?P<ext>[^.]+)
+    $
     """,
     re.X,
 )
 
+# 2) 2026-01-01_to_2026-01-24_Title.png
+# 2b) 2026-01-01T09-30_to_2026-01-24T14-00_Title.png
 NAME_RE_NO_DUR = re.compile(
     r"""
-    ^(?P<start>\d{4}-\d{2}-\d{2})
+    ^
+    (?P<start>[^_]+)
     _to_
-    (?P<end>\d{4}-\d{2}-\d{2})
+    (?P<end>[^_]+)
     _(?P<title>.+)
-    \.(?P<ext>[^.]+)$
+    \.(?P<ext>[^.]+)
+    $
     """,
     re.X,
 )
 
+# 3) __8s__Title.jpg (no date window)
 NAME_RE_DUR_PREFIX = re.compile(
     r"""
-    ^__(?P<dur>\d+)[sS]?__
+    ^
+    __(?P<dur>\d+)[sS]?__
     (?P<title>.+)
-    \.(?P<ext>[^.]+)$
+    \.(?P<ext>[^.]+)
+    $
     """,
     re.X,
 )
 
 
-def parse_filename(name: str) -> dict:
+def parse_filename(fname: str):
     """
     Parse a filename into metadata:
-    - start, end (optional)
-    - durationSeconds (optional)
-    - title
+      - start (ISO) optional
+      - end (ISO) optional
+      - durationSeconds optional
+      - title (string)
     """
-    base, ext = os.path.splitext(name)
+    base, ext = os.path.splitext(fname)
 
     meta = {
-        "title": base,
+        "title": base.replace("_", " ").strip(),
         "start": None,
         "end": None,
         "durationSeconds": None,
     }
 
-    m = NAME_RE_WITH_DUR.match(name)
+    m = NAME_RE_WITH_DUR.match(fname)
     if m:
-        meta["title"] = m.group("title").replace("_", " ").strip()
-        meta["start"] = m.group("start")
-        meta["end"] = m.group("end")
+        start_iso = normalize_dt_token(m.group("start"))
+        end_iso = normalize_dt_token(m.group("end"))
+        title = m.group("title").replace("_", " ").strip()
+
+        # Only accept parsed datetimes; otherwise treat as unscheduled title
+        if start_iso and end_iso:
+            meta["start"] = start_iso
+            meta["end"] = end_iso
+
+        meta["title"] = title
         meta["durationSeconds"] = int(m.group("dur"))
         return meta
 
-    m = NAME_RE_NO_DUR.match(name)
+    m = NAME_RE_NO_DUR.match(fname)
     if m:
-        meta["title"] = m.group("title").replace("_", " ").strip()
-        meta["start"] = m.group("start")
-        meta["end"] = m.group("end")
+        start_iso = normalize_dt_token(m.group("start"))
+        end_iso = normalize_dt_token(m.group("end"))
+        title = m.group("title").replace("_", " ").strip()
+
+        if start_iso and end_iso:
+            meta["start"] = start_iso
+            meta["end"] = end_iso
+
+        meta["title"] = title
         return meta
 
-    m = NAME_RE_DUR_PREFIX.match(name)
+    m = NAME_RE_DUR_PREFIX.match(fname)
     if m:
         meta["title"] = m.group("title").replace("_", " ").strip()
         meta["durationSeconds"] = int(m.group("dur"))
         return meta
 
-    meta["title"] = base.replace("_", " ").strip()
     return meta
 
 
-def build_manifest(images_dir: str, out_json: str) -> bool:
+def build_manifest(images_dir: str, out_json: str):
     """
     Scan images_dir and write a flat images.json at out_json.
 
@@ -106,13 +163,13 @@ def build_manifest(images_dir: str, out_json: str) -> bool:
         if not os.path.isfile(full):
             continue
 
-        ext = os.path.splitext(fname)[1].lower()
+        _, ext = os.path.splitext(fname)
+        ext = ext.lower()
         if ext not in ALLOWED_EXTS:
             continue
 
         meta = parse_filename(fname)
 
-        # Build URL relative to repo root
         url = f"{section}/images/{fname}".replace(os.sep, "/")
 
         item = {
@@ -120,18 +177,16 @@ def build_manifest(images_dir: str, out_json: str) -> bool:
             "title": meta["title"],
         }
 
-        # Start/end as ISO strings if present
         if meta["start"]:
-            item["start"] = meta["start"] + "T00:00:00"
+            item["start"] = meta["start"]
         if meta["end"]:
-            item["end"] = meta["end"] + "T00:00:00"
-
+            item["end"] = meta["end"]
         if meta["durationSeconds"] is not None:
             item["durationSeconds"] = meta["durationSeconds"]
 
         items.append(item)
 
-    # Sort by end date (soonest-expiring first); items without end go last
+    # Sort: no end first, then soonest end, then start, then title
     def sort_key(it):
         def parse_iso(s):
             if not s:
