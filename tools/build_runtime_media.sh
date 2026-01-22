@@ -6,13 +6,21 @@ RUNTIME_DIR="_Yodeck-HTML-Slideshow_Runtime/images"
 
 mkdir -p "$RUNTIME_DIR"
 
-# Extensions
+echo "Admin:   $ADMIN_DIR"
+echo "Runtime: $RUNTIME_DIR"
+
+# --------------------------------------------
+# Helpers
+# --------------------------------------------
+lower() { echo "${1,,}"; }
+
 is_video() {
-  local f="${1,,}"
+  local f; f="$(lower "$1")"
   [[ "$f" == *.mp4 || "$f" == *.mov || "$f" == *.webm || "$f" == *.m4v ]]
 }
+
 is_image() {
-  local f="${1,,}"
+  local f; f="$(lower "$1")"
   [[ "$f" == *.png || "$f" == *.jpg || "$f" == *.jpeg || "$f" == *.gif || "$f" == *.webp ]]
 }
 
@@ -20,30 +28,49 @@ is_image() {
 needs_update() {
   local src="$1"
   local dst="$2"
-
   [[ ! -f "$dst" ]] && return 0
   [[ "$src" -nt "$dst" ]] && return 0
   return 1
 }
 
-echo "Admin:   $ADMIN_DIR"
-echo "Runtime: $RUNTIME_DIR"
+# --------------------------------------------
+# Build a list of expected runtime filenames
+# (images keep same filename; videos become .mp4)
+# --------------------------------------------
+declare -A EXPECTED=()
 
-# ------------------------------------------------------------
-# 1) Remove runtime files that no longer exist in Admin
-# ------------------------------------------------------------
-echo "Pruning runtime files that were deleted from Admin…"
+while IFS= read -r -d '' src; do
+  base="$(basename "$src")"
+  base_lower="$(lower "$base")"
+
+  if is_image "$base"; then
+    EXPECTED["$base"]=1
+  elif is_video "$base"; then
+    if [[ "$base_lower" == *.mp4 ]]; then
+      EXPECTED["$base"]=1
+    else
+      EXPECTED["${base%.*}.mp4"]=1
+    fi
+  fi
+done < <(find "$ADMIN_DIR" -maxdepth 1 -type f -print0)
+
+# --------------------------------------------
+# 1) Prune runtime files not expected anymore
+# --------------------------------------------
+echo "Pruning runtime files not expected anymore…"
 while IFS= read -r -d '' rt; do
-  base="$(basename "$rt")"
-  if [[ ! -f "$ADMIN_DIR/$base" ]]; then
-    echo "  - removing: $base"
+  rbase="$(basename "$rt")"
+  [[ "$rbase" == ".gitkeep" ]] && continue
+
+  if [[ -z "${EXPECTED[$rbase]+x}" ]]; then
+    echo "  - removing stale runtime: $rbase"
     rm -f "$rt"
   fi
-done < <(find "$RUNTIME_DIR" -maxdepth 1 -type f ! -name ".gitkeep" -print0)
+done < <(find "$RUNTIME_DIR" -maxdepth 1 -type f -print0)
 
-# ------------------------------------------------------------
+# --------------------------------------------
 # 2) Copy images (missing/outdated only)
-# ------------------------------------------------------------
+# --------------------------------------------
 echo "Syncing images (missing/outdated only)…"
 while IFS= read -r -d '' src; do
   base="$(basename "$src")"
@@ -55,20 +82,15 @@ while IFS= read -r -d '' src; do
   fi
 done < <(find "$ADMIN_DIR" -maxdepth 1 -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.gif" -o -iname "*.webp" \) -print0)
 
-# ------------------------------------------------------------
-# 3) Transcode videos (missing/outdated only)
-#    Output is always .mp4 in Runtime (same base name if already .mp4)
-#    If source is .mov/.webm/.m4v we still output .mp4 (same filename but .mp4)
-# ------------------------------------------------------------
+# --------------------------------------------
+# 3) Transcode videos -> Pi-safe mp4 (missing/outdated only)
+# --------------------------------------------
 echo "Syncing videos (missing/outdated only)…"
 while IFS= read -r -d '' src; do
   base="$(basename "$src")"
-  src_lower="${base,,}"
+  base_lower="$(lower "$base")"
 
-  # Output filename rules:
-  # - If source is .mp4 -> keep name
-  # - Otherwise -> same name but .mp4
-  if [[ "$src_lower" == *.mp4 ]]; then
+  if [[ "$base_lower" == *.mp4 ]]; then
     out_name="$base"
   else
     out_name="${base%.*}.mp4"
@@ -76,26 +98,26 @@ while IFS= read -r -d '' src; do
 
   dst="$RUNTIME_DIR/$out_name"
 
-  # If source is non-mp4 and an old runtime of the original extension exists, remove it
-  if [[ "$src_lower" != *.mp4 ]]; then
-    old="$RUNTIME_DIR/$base"
-    [[ -f "$old" ]] && rm -f "$old"
-  fi
-
   if needs_update "$src" "$dst"; then
     echo "  + transcode video: $base -> $out_name"
-
     tmp="$(mktemp --suffix=.mp4)"
 
-    # Pi-safe, silent, streaming-friendly MP4
+    # Notes:
+    # -an = remove audio
+    # -tune fastdecode / -bf 0 / -refs 1 = easier for Pi/Chromium
+    # -g 60 = keyframe every ~2s at 30fps (predictable seeking)
+    # -r 30 = constant fps helps avoid weird timing/fade hiccups
     ffmpeg -y -hide_banner -loglevel error \
       -i "$src" \
       -an \
+      -vf "fps=30,format=yuv420p" \
       -c:v libx264 \
-      -pix_fmt yuv420p \
       -profile:v main -level 4.0 \
       -preset veryfast -crf 22 \
-      -maxrate 10M -bufsize 20M \
+      -tune fastdecode \
+      -bf 0 -refs 1 \
+      -g 60 -keyint_min 60 -sc_threshold 0 \
+      -maxrate 8M -bufsize 16M \
       -movflags +faststart \
       "$tmp"
 
