@@ -1,27 +1,37 @@
 (() => {
   const cfg = window.SS_CONFIG || {};
 
-  // Defaults
+  // ----------------------------
+  // Config / Defaults
+  // ----------------------------
   const DEFAULT_IMAGE_SECONDS = Number.isFinite(cfg.defaultDuration) ? cfg.defaultDuration : 10;
   const FADE_MS = Math.max(0, parseInt(cfg.transitionMs ?? 500, 10));
   const REFRESH_MIN = Math.max(1, parseInt(cfg.refreshMinutes ?? 10, 10));
 
-  // ✅ TIGHTER VIDEO OUTRO:
-  // Start transition BEFORE the last-frame freeze becomes visible.
-  // Tune this if needed: higher = starts earlier (hides freeze better).
+  // Start transition BEFORE video ends to hide last-frame freeze
   const VIDEO_OUTRO_LEAD_MS = Math.min(1400, Math.max(350, Math.floor(FADE_MS * 1.2)));
 
-  // Failsafe if duration never becomes usable
+  // If video metadata/duration never becomes usable, advance anyway
   const VIDEO_FAILSAFE_MS = Math.max(2500, DEFAULT_IMAGE_SECONDS * 1000);
 
-  // Apply CSS vars
+  // Give the video a moment to actually present frames before fading in
+  const VIDEO_PREROLL_MS = Math.min(300, Math.max(80, Math.floor(FADE_MS * 0.4)));
+
+  // Apply CSS vars used by style.css
   document.documentElement.style.setProperty("--fade-ms", `${FADE_MS}ms`);
   document.documentElement.style.setProperty("--fit", cfg.objectFit || "contain");
   document.documentElement.style.setProperty("--bg", cfg.bg || "#000");
 
+  // Status: keep hidden unless error (prevents maroon/debug bars)
   const statusEl = document.getElementById("status");
-  function logStatus(msg) { if (statusEl) statusEl.textContent = msg || ""; }
+  const setStatus = (msg) => {
+    if (!statusEl) return;
+    statusEl.textContent = msg || "";
+    statusEl.style.display = msg ? "block" : "none";
+  };
+  setStatus("");
 
+  // Cache-bust helper (use ONLY for manifest + image preload)
   function bust(url) {
     if (!url) return url;
     const sep = url.includes("?") ? "&" : "?";
@@ -47,6 +57,9 @@
   let timer = null;
   let repoll = null;
 
+  // ----------------------------
+  // Helpers
+  // ----------------------------
   function isActiveNow(it) {
     const now = new Date();
     const enabled = it.enabled !== false;
@@ -55,6 +68,7 @@
     return enabled && startOk && endOk;
   }
 
+  // no-expiry first, then soonest expiring → latest, then start, then title
   function sortItems(arr) {
     return arr.slice().sort((x, y) => {
       const xe = x.end ? new Date(x.end) : null;
@@ -104,10 +118,12 @@
   }
 
   function hideMedia(target) {
+    // Image
     target.img.classList.add("media-hidden");
     target.img.removeAttribute("src");
     target.img.alt = "";
 
+    // Video
     try { target.vid.pause(); } catch {}
     target.vid.classList.add("media-hidden");
     target.vid.removeAttribute("src");
@@ -120,6 +136,7 @@
     const src = String(item.url || "");
     if (!src) throw new Error("Missing image url");
 
+    // Preload with cache-bust, then set real src WITHOUT bust
     const preload = new Image();
     preload.src = bust(src);
 
@@ -137,6 +154,25 @@
     }
   }
 
+  // Wait for a displayed frame (helps avoid "cut" into video)
+  function waitForVideoFrame(v, timeoutMs = 800) {
+    return new Promise((resolve, reject) => {
+      const start = Date.now();
+
+      const tick = () => {
+        // readyState >= 2: have current data
+        // currentTime > 0 OR not paused: indicates playback has started
+        // videoWidth > 0: decoder has dimensions
+        if (v.videoWidth > 0 && v.readyState >= 2 && !v.paused) return resolve();
+
+        if (Date.now() - start > timeoutMs) return resolve(); // don't block forever
+        requestAnimationFrame(tick);
+      };
+
+      requestAnimationFrame(tick);
+    });
+  }
+
   async function prepareVideo(target, item) {
     hideMedia(target);
 
@@ -149,6 +185,7 @@
     target.vid.loop = false;
     target.vid.preload = "auto";
 
+    // IMPORTANT: do NOT bust video URLs (causes inconsistent caching/buffering on Pi)
     target.vid.src = src;
     target.vid.currentTime = 0;
 
@@ -159,12 +196,17 @@
         target.vid.removeEventListener("canplay", onCanPlay);
         target.vid.removeEventListener("error", onErr);
       };
-      target.vid.addEventListener("canplay", onCanPlay);
-      target.vid.addEventListener("error", onErr);
+      target.vid.addEventListener("canplay", onCanPlay, { once: true });
+      target.vid.addEventListener("error", onErr, { once: true });
       target.vid.load();
     });
 
+    // Start playback (muted autoplay)
     try { await target.vid.play(); } catch {}
+
+    // Give it a moment to start presenting frames before we fade it in
+    await waitForVideoFrame(target.vid, 900);
+    if (VIDEO_PREROLL_MS > 0) await new Promise(r => setTimeout(r, VIDEO_PREROLL_MS));
   }
 
   function forceTransitionFrame(el) { void el.offsetHeight; }
@@ -173,6 +215,7 @@
     incoming.wrap.style.zIndex = "2";
     outgoing.wrap.style.zIndex = "1";
 
+    // Start incoming hidden, then fade in
     incoming.wrap.classList.remove("visible");
     forceTransitionFrame(incoming.wrap);
 
@@ -182,6 +225,7 @@
 
     if (FADE_MS > 0) await new Promise(r => setTimeout(r, FADE_MS));
 
+    // Now hide outgoing and clean it up AFTER fade completes
     outgoing.wrap.classList.remove("visible");
 
     try { outgoing.vid.pause(); } catch {}
@@ -197,7 +241,7 @@
     timer = setTimeout(showNext, ms);
   }
 
-  // ✅ VIDEO: fire when remaining time <= lead (timeupdate), not at ended
+  // VIDEO: fire when remaining time <= lead (timeupdate), not at ended
   function scheduleNextForVideo(target, item) {
     clearTimeout(timer);
 
@@ -209,6 +253,7 @@
       try { v.removeEventListener("ended", onEnded); } catch {}
       try { v.removeEventListener("error", onEnded); } catch {}
       try { v.removeEventListener("loadedmetadata", onMeta); } catch {}
+      clearTimeout(timer);
     };
 
     const fireOnce = () => {
@@ -219,11 +264,9 @@
     };
 
     const onEnded = () => fireOnce();
-
     const leadSec = VIDEO_OUTRO_LEAD_MS / 1000;
 
     const onTimeUpdate = () => {
-      // Need usable duration and currentTime
       const d = v.duration;
       if (!isFinite(d) || d <= 0.5) return;
 
@@ -232,8 +275,6 @@
     };
 
     const onMeta = () => {
-      // Once metadata exists, timeupdate will do the early trigger.
-      // But also set an absolute timeout as a safety net.
       const d = v.duration;
       if (isFinite(d) && d > 0.5) {
         const ms = Math.max(800, Math.floor(d * 1000) - VIDEO_OUTRO_LEAD_MS);
@@ -243,7 +284,7 @@
       }
     };
 
-    // Respect explicit durationSeconds override, if present
+    // Respect explicit duration override if present
     if (Number.isFinite(item.durationSeconds) && item.durationSeconds > 0) {
       timer = setTimeout(fireOnce, Math.max(1000, item.durationSeconds * 1000));
       return;
@@ -271,6 +312,7 @@
     const outgoing = usingA ? B : A;
 
     try {
+      setStatus(""); // hide debug bar
       setCaption(incoming, item);
 
       if (kind === "video") await prepareVideo(incoming, item);
@@ -285,7 +327,7 @@
 
     } catch (e) {
       console.warn(e);
-      logStatus(`Skipped failed media:\n${e?.message || String(e)}`);
+      setStatus(`Media error: ${e?.message || String(e)}`);
       clearTimeout(timer);
       timer = setTimeout(showNext, 800);
     }
@@ -303,14 +345,14 @@
       B.wrap.classList.remove("visible"); B.wrap.setAttribute("aria-hidden", "true"); hideMedia(B);
 
       if (!items.length) {
-        logStatus("No active items");
+        setStatus("No active items");
         return;
       }
 
       showNext();
     } catch (err) {
       console.error(err);
-      logStatus("Manifest error:\n" + (err?.message || String(err)));
+      setStatus("Manifest error: " + (err?.message || String(err)));
     }
   }
 
