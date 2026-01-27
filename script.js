@@ -334,27 +334,34 @@
   }
 
   async function loadAndStart() {
-    try {
-      const manifest = await fetchManifest();
-      items = sortItems(manifest.filter(isActiveNow));
+  try {
+    const manifest = await fetchManifest();
+    const fallbackEl = document.getElementById("fallback");
 
-      idx = -1;
-      usingA = true;
+    items = sortItems(manifest.filter(isActiveNow));
 
-      A.wrap.classList.remove("visible"); A.wrap.setAttribute("aria-hidden", "true"); hideMedia(A);
-      B.wrap.classList.remove("visible"); B.wrap.setAttribute("aria-hidden", "true"); hideMedia(B);
+    // Reset state
+    idx = -1;
+    usingA = true;
 
-      if (!items.length) {
-        setStatus("No active items");
-        return;
-      }
+    // Clear both layers
+    A.wrap.classList.remove("visible"); A.wrap.setAttribute("aria-hidden", "true"); hideMedia(A);
+    B.wrap.classList.remove("visible"); B.wrap.setAttribute("aria-hidden", "true"); hideMedia(B);
 
-      showNext();
-    } catch (err) {
-      console.error(err);
-      setStatus("Manifest error: " + (err?.message || String(err)));
+    // Fallback handling
+    if (!items.length) {
+      if (fallbackEl) fallbackEl.classList.remove("hidden");
+      return;
+    } else {
+      if (fallbackEl) fallbackEl.classList.add("hidden");
     }
+
+    showNext();
+  } catch (err) {
+    console.error(err);
+    setStatus("Manifest error: " + (err?.message || String(err)));
   }
+}
 
   function scheduleRepoll() {
     if (repoll) clearInterval(repoll);
