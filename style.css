@@ -1,19 +1,19 @@
-:root {
+:root{
   --fade-ms: 500ms; /* overwritten by JS */
   --caption-bg: rgba(0,0,0,0.4);
   --caption-color: #fff;
 }
 
-* { box-sizing: border-box; }
-html, body { height: 100%; }
+*{ box-sizing: border-box; }
+html, body{ height: 100%; }
 
-body {
+body{
   margin: 0;
   background: #000;
   font-family: system-ui, Arial, sans-serif;
 }
 
-.slideshow {
+.slideshow{
   position: fixed;
   inset: 0;
   background: var(--bg, #000);
@@ -21,7 +21,7 @@ body {
 }
 
 /* Two stacked layers that crossfade */
-.slide {
+.slide{
   position: absolute;
   inset: 0;
   opacity: 0;
@@ -35,23 +35,23 @@ body {
   transform: translateZ(0);
 }
 
-.slide.visible { opacity: 1; }
+.slide.visible{ opacity: 1; }
 
-.media {
+.media{
   width: 100%;
   height: 100%;
   object-fit: var(--fit, contain);
 
-  /* also helps reduce tearing/flicker on some GPUs */
+  /* reduce tearing/flicker on some GPUs */
   backface-visibility: hidden;
   transform: translateZ(0);
 }
 
 /* Hide whichever media type isn't used for this slide */
-.media-hidden { display: none; }
+.media-hidden{ display: none; }
 
 /* Caption (optional) */
-.caption {
+.caption{
   position: absolute;
   left: 0;
   right: 0;
@@ -66,47 +66,53 @@ body {
   backdrop-filter: blur(2px);
 }
 
-.caption.hidden { display: none; }
+.caption.hidden{ display: none; }
 
 /* Status: hidden unless JS explicitly shows it */
-.status {
+.status{
   position: absolute;
-  top: 8px;
-  right: 10px;
-  font-size: 12px;
-  color: #bbb;
-  opacity: .7;
-  user-select: none;
-
-  display: none; /* JS will set display:block only on error */
+  left: 0;
+  top: 0;
+  right: 0;
+  padding: 10px 14px;
+  font: 700 18px/1.2 system-ui, Arial, sans-serif;
+  background: rgba(160,0,0,.55);
+  color: #fff;
+  z-index: 60;
+  display: none;          /* JS will set display:block only on error */
+  white-space: pre-wrap;
 }
-.fallback {
+
+/* Fallback banner (manifest empty / no active slides) */
+.fallback{
   position: absolute;
   inset: 0;
-  background: #000;
-  color: #fff;
+  z-index: 50;
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 10;
+  background: rgba(0,0,0,0.70);
+  color: #fff;
 }
 
-.fallback.hidden {
-  display: none;
-}
+.fallback.hidden{ display: none; }
 
-.fallback-inner {
+.fallback-inner{
   text-align: center;
-  font-family: system-ui, Arial, sans-serif;
+  padding: 28px 34px;
+  border-radius: 18px;
+  background: rgba(0,0,0,0.55);
+  max-width: 90%;
 }
 
-.fallback-title {
+.fallback-title{
   font-size: 48px;
-  font-weight: 700;
+  font-weight: 800;
   margin-bottom: 12px;
+  letter-spacing: .2px;
 }
 
-.fallback-sub {
+.fallback-sub{
   font-size: 22px;
-  opacity: 0.8;
+  opacity: 0.85;
 }
