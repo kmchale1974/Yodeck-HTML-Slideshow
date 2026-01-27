@@ -1,3 +1,4 @@
+<!-- index.html (drop-in, cleaned) -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -21,19 +22,22 @@
       <video id="vidB" class="media media-hidden" muted playsinline preload="metadata"></video>
       <div class="caption hidden" id="capB"></div>
     </div>
-    <div id="fallback" class="fallback hidden">
-  <div class="fallback-inner">
-    <div class="fallback-title">No Slides Scheduled</div>
-    <div class="fallback-sub">Content will appear automatically when available</div>
-  </div>
-</div>
+
+    <!-- Fallback banner (shown when manifest has no active items) -->
+    <div id="fallback" class="fallback hidden" aria-live="polite">
+      <div class="fallback-inner">
+        <div class="fallback-title">No Slides Scheduled</div>
+        <div class="fallback-sub">Content will appear automatically when available</div>
+      </div>
+    </div>
+
+    <!-- Status (hidden unless error) -->
     <div id="status" class="status"></div>
   </div>
 
   <script>
     const qs = new URLSearchParams(location.search);
 
-    // Querystring config
     window.SS_CONFIG = {
       imagesManifest: qs.get('manifest') || 'images.json',
       defaultDuration: parseInt(qs.get('dur') || '10', 10), // seconds (images only)
@@ -47,6 +51,7 @@
     };
   </script>
 
-  <script src="script.js?v=20260112a"></script>
+  <!-- Tip: if you want cache-busting, change the v= value when you deploy -->
+  <script src="script.js?v=20260127a"></script>
 </body>
 </html>
