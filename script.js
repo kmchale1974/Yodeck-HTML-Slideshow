@@ -1,3 +1,4 @@
+// script.js (drop-in, cleaned + Pi-stability tweaks + fallback banner)
 (() => {
   const cfg = window.SS_CONFIG || {};
 
@@ -22,7 +23,7 @@
   document.documentElement.style.setProperty("--fit", cfg.objectFit || "contain");
   document.documentElement.style.setProperty("--bg", cfg.bg || "#000");
 
-  // Status: keep hidden unless error (prevents maroon/debug bars)
+  // Status: hidden unless error
   const statusEl = document.getElementById("status");
   const setStatus = (msg) => {
     if (!statusEl) return;
@@ -30,6 +31,12 @@
     statusEl.style.display = msg ? "block" : "none";
   };
   setStatus("");
+
+  const fallbackEl = document.getElementById("fallback");
+  const showFallback = (show) => {
+    if (!fallbackEl) return;
+    fallbackEl.classList.toggle("hidden", !show);
+  };
 
   // Cache-bust helper (use ONLY for manifest + image preload)
   function bust(url) {
@@ -155,17 +162,13 @@
   }
 
   // Wait for a displayed frame (helps avoid "cut" into video)
-  function waitForVideoFrame(v, timeoutMs = 800) {
-    return new Promise((resolve, reject) => {
+  function waitForVideoFrame(v, timeoutMs = 900) {
+    return new Promise((resolve) => {
       const start = Date.now();
 
       const tick = () => {
-        // readyState >= 2: have current data
-        // currentTime > 0 OR not paused: indicates playback has started
-        // videoWidth > 0: decoder has dimensions
         if (v.videoWidth > 0 && v.readyState >= 2 && !v.paused) return resolve();
-
-        if (Date.now() - start > timeoutMs) return resolve(); // don't block forever
+        if (Date.now() - start > timeoutMs) return resolve();
         requestAnimationFrame(tick);
       };
 
@@ -185,7 +188,7 @@
     target.vid.loop = false;
     target.vid.preload = "auto";
 
-    // IMPORTANT: do NOT bust video URLs (causes inconsistent caching/buffering on Pi)
+    // IMPORTANT: do NOT bust video URLs (Pi stability)
     target.vid.src = src;
     target.vid.currentTime = 0;
 
@@ -248,14 +251,6 @@
     const v = target.vid;
     let fired = false;
 
-    const cleanup = () => {
-      try { v.removeEventListener("timeupdate", onTimeUpdate); } catch {}
-      try { v.removeEventListener("ended", onEnded); } catch {}
-      try { v.removeEventListener("error", onEnded); } catch {}
-      try { v.removeEventListener("loadedmetadata", onMeta); } catch {}
-      clearTimeout(timer);
-    };
-
     const fireOnce = () => {
       if (fired) return;
       fired = true;
@@ -284,9 +279,19 @@
       }
     };
 
+    // ✅ cleanup DOES NOT clear the global timer (prevents races)
+    const cleanup = () => {
+      try { v.removeEventListener("timeupdate", onTimeUpdate); } catch {}
+      try { v.removeEventListener("ended", onEnded); } catch {}
+      try { v.removeEventListener("error", onEnded); } catch {}
+      try { v.removeEventListener("loadedmetadata", onMeta); } catch {}
+    };
+
     // Respect explicit duration override if present
     if (Number.isFinite(item.durationSeconds) && item.durationSeconds > 0) {
       timer = setTimeout(fireOnce, Math.max(1000, item.durationSeconds * 1000));
+      // Absolute failsafe anyway
+      setTimeout(fireOnce, Math.floor(VIDEO_FAILSAFE_MS * 1.5));
       return;
     }
 
@@ -295,9 +300,12 @@
     v.addEventListener("error", onEnded, { once: true });
     v.addEventListener("loadedmetadata", onMeta, { once: true });
 
-    // If metadata already loaded, schedule immediately
+    // If metadata already loaded, schedule immediately; otherwise fallback
     if (isFinite(v.duration) && v.duration > 0.5) onMeta();
     else timer = setTimeout(fireOnce, VIDEO_FAILSAFE_MS);
+
+    // ✅ True failsafe regardless of metadata weirdness
+    setTimeout(fireOnce, Math.floor(VIDEO_FAILSAFE_MS * 1.5));
   }
 
   async function showNext() {
@@ -312,9 +320,10 @@
     const outgoing = usingA ? B : A;
 
     try {
-      setStatus(""); // hide debug bar
+      setStatus(""); // hide error banner
       setCaption(incoming, item);
 
+      // Prepare media first (avoid flash/cut), then fade
       if (kind === "video") await prepareVideo(incoming, item);
       else await prepareImage(incoming, item);
 
@@ -334,40 +343,38 @@
   }
 
   async function loadAndStart() {
-  try {
-    const manifest = await fetchManifest();
-    const fallbackEl = document.getElementById("fallback");
+    try {
+      const manifest = await fetchManifest();
+      items = sortItems(manifest.filter(isActiveNow));
 
-    items = sortItems(manifest.filter(isActiveNow));
+      // Reset state
+      idx = -1;
+      usingA = true;
 
-    // Reset state
-    idx = -1;
-    usingA = true;
+      // Clear both layers
+      A.wrap.classList.remove("visible"); A.wrap.setAttribute("aria-hidden", "true"); hideMedia(A);
+      B.wrap.classList.remove("visible"); B.wrap.setAttribute("aria-hidden", "true"); hideMedia(B);
 
-    // Clear both layers
-    A.wrap.classList.remove("visible"); A.wrap.setAttribute("aria-hidden", "true"); hideMedia(A);
-    B.wrap.classList.remove("visible"); B.wrap.setAttribute("aria-hidden", "true"); hideMedia(B);
+      if (!items.length) {
+        showFallback(true);
+        return;
+      }
 
-    // Fallback handling
-    if (!items.length) {
-      if (fallbackEl) fallbackEl.classList.remove("hidden");
-      return;
-    } else {
-      if (fallbackEl) fallbackEl.classList.add("hidden");
+      showFallback(false);
+      showNext();
+    } catch (err) {
+      console.error(err);
+      showFallback(true);
+      setStatus("Manifest error: " + (err?.message || String(err)));
     }
-
-    showNext();
-  } catch (err) {
-    console.error(err);
-    setStatus("Manifest error: " + (err?.message || String(err)));
   }
-}
 
   function scheduleRepoll() {
     if (repoll) clearInterval(repoll);
     repoll = setInterval(loadAndStart, REFRESH_MIN * 60 * 1000);
   }
 
+  // Go
   loadAndStart();
   scheduleRepoll();
 })();
