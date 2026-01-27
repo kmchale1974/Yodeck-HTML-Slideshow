@@ -80,3 +80,33 @@ body {
 
   display: none; /* JS will set display:block only on error */
 }
+.fallback {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.fallback.hidden {
+  display: none;
+}
+
+.fallback-inner {
+  text-align: center;
+  font-family: system-ui, Arial, sans-serif;
+}
+
+.fallback-title {
+  font-size: 48px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.fallback-sub {
+  font-size: 22px;
+  opacity: 0.8;
+}
