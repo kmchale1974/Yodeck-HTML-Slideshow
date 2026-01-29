@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ADMIN_DIR="_Yodeck-HTML-Slideshow_VillagePublic/images"
-RUNTIME_DIR="_Yodeck-HTML-Slideshow_Runtime_VillagePublic/images"
+RUNTIME_DIR="_Yodeck-HTML-Slideshow_VillagePublic_Runtime/images"
 
 mkdir -p "$RUNTIME_DIR"
 
