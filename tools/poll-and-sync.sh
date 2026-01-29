@@ -1,68 +1,113 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO="/home/vortv/Yodeck-HTML-Slideshow"
+# ------------------------------------------------------------
+# Multi-folder NAS → Repo sync
+# Repo: kmchale1974/Yodeck-HTML-Slideshow
+# Runs on signage-sync Pi via systemd timer/service
+# ------------------------------------------------------------
 
-# ---- Sources (NAS mounts) ----
-SRC_ADMIN="/mnt/yodeck-admin"
-SRC_VP="/mnt/yodeck-villagepublic"
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+CFG_FILE="${REPO_DIR}/tools/sync-folders.conf"
 
-# ---- Destinations (repo watch folders) ----
-DST_ADMIN="$REPO/_Yodeck-HTML-Slideshow_Admin/images"
-DST_VP="$REPO/_Yodeck-HTML-Slideshow_VillagePublic/images"
+LOCK_FILE="/tmp/yodeck-sync.lock"
+exec 9>"$LOCK_FILE"
+if ! flock -n 9; then
+  echo "Another sync is already running; exiting."
+  exit 0
+fi
 
-# Exclusions: don’t pollute watch folders with junk
+cd "$REPO_DIR"
+
+if [[ ! -f "$CFG_FILE" ]]; then
+  echo "Missing config: $CFG_FILE"
+  exit 1
+fi
+
+echo "== Yodeck multi-sync =="
+echo "Repo: $REPO_DIR"
+echo "Config: $CFG_FILE"
+echo
+
+# Pull first to avoid non-fast-forward push failures
+echo "-- git pull --rebase"
+git fetch origin main
+git pull --rebase origin main
+
+CHANGED=0
+
+# Excludes (tweak as needed)
 RSYNC_EXCLUDES=(
   "--exclude=.gitkeep"
   "--exclude=Thumbs.db"
+  "--exclude=Desktop.ini"
   "--exclude=._*"
   "--exclude=.DS_Store"
   "--exclude=_Naming Conventions.txt"
 )
 
-echo "=== Yodeck sync: $(date) ==="
-echo "Repo: $REPO"
+# Config format:
+# key|/mnt/yodeck-xxx|_Yodeck-HTML-Slideshow_Key/images
+while IFS='|' read -r KEY SRC_MNT DEST_REL; do
+  # skip blanks/comments
+  [[ -z "${KEY// }" ]] && continue
+  [[ "${KEY:0:1}" == "#" ]] && continue
 
-# Ensure destinations exist
-mkdir -p "$DST_ADMIN" "$DST_VP"
+  SRC="${SRC_MNT%/}/"
+  DEST="${REPO_DIR}/${DEST_REL%/}/"
 
-sync_one () {
-  local src="$1"
-  local dst="$2"
-  local label="$3"
+  echo "== Sync: ${KEY}"
+  echo "   from: $SRC"
+  echo "     to: $DEST"
 
-  if [[ ! -d "$src" ]]; then
-    echo "!! Missing source mount for $label: $src"
-    return 1
+  if [[ ! -d "$SRC_MNT" ]]; then
+    echo "   !! missing mount dir: $SRC_MNT (skipping)"
+    echo
+    continue
   fi
 
-  echo "--- Sync $label ---"
-  rsync -av --delete "${RSYNC_EXCLUDES[@]}" "$src/" "$dst/"
-}
+  mkdir -p "$DEST"
 
-cd "$REPO"
+  # If mount exists but is empty due to mount failure, you may want to skip.
+  # This check helps avoid deleting repo files if the mount is accidentally empty.
+  if [[ -z "$(ls -A "$SRC_MNT" 2>/dev/null || true)" ]]; then
+    echo "   !! mount appears empty: $SRC_MNT (skipping to avoid deletes)"
+    echo
+    continue
+  fi
 
-# Pull latest first (avoid push rejection)
-git fetch origin main >/dev/null 2>&1 || true
-git pull --rebase origin main || true
+  # rsync → repo watch folder
+  if rsync -av --delete "${RSYNC_EXCLUDES[@]}" "$SRC" "$DEST"; then
+    :
+  fi
 
-sync_one "$SRC_ADMIN" "$DST_ADMIN" "Admin"
-sync_one "$SRC_VP" "$DST_VP" "VillagePublic"
+  # Detect changes
+  if ! git diff --quiet -- "$DEST_REL"; then
+    CHANGED=1
+  fi
 
-# If nothing changed, exit quietly
-if git diff --quiet && git diff --cached --quiet; then
-  echo "No changes detected."
+  echo
+done < "$CFG_FILE"
+
+if [[ "$CHANGED" -eq 0 ]]; then
+  echo "-- No changes detected. Done."
   exit 0
 fi
 
-# Commit + push (single commit for both folders)
+echo "-- Commit & push changes"
 git add -A
 
 if git diff --cached --quiet; then
-  echo "No staged changes after add."
+  echo "Nothing staged after add (unexpected). Done."
   exit 0
 fi
 
-git commit -m "chore(sync): update watch folders [skip ci]" || true
+git config user.name "signage-sync"
+git config user.email "signage-sync@users.noreply.github.com"
+git commit -m "chore(sync): update watch folders [skip ci]"
+
+# Rebase again just in case another actor pushed while we worked
+git pull --rebase origin main
 git push origin main
-echo "Done."
+
+echo "-- Done."
