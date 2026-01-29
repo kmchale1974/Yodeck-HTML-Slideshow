@@ -1,40 +1,68 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+set -euo pipefail
 
-SECTION="Admin"
+REPO="/home/vortv/Yodeck-HTML-Slideshow"
 
-NAS_SRC="/mnt/yodeck-admin"
-REPO_ROOT="/home/vortv/Yodeck-HTML-Slideshow"
-REPO_DST="$REPO_ROOT/_Yodeck-HTML-Slideshow_Admin/images"
+# ---- Sources (NAS mounts) ----
+SRC_ADMIN="/mnt/yodeck-admin"
+SRC_VP="/mnt/yodeck-villagepublic"
 
-LOG_TAG="[${SECTION}]"
+# ---- Destinations (repo watch folders) ----
+DST_ADMIN="$REPO/_Yodeck-HTML-Slideshow_Admin/images"
+DST_VP="$REPO/_Yodeck-HTML-Slideshow_VillagePublic/images"
 
-cd "$REPO_ROOT"
+# Exclusions: don’t pollute watch folders with junk
+RSYNC_EXCLUDES=(
+  "--exclude=.gitkeep"
+  "--exclude=Thumbs.db"
+  "--exclude=._*"
+  "--exclude=.DS_Store"
+  "--exclude=_Naming Conventions.txt"
+)
 
-echo "$LOG_TAG git pull --rebase"
-git pull --rebase || true
+echo "=== Yodeck sync: $(date) ==="
+echo "Repo: $REPO"
 
-mkdir -p "$REPO_DST"
+# Ensure destinations exist
+mkdir -p "$DST_ADMIN" "$DST_VP"
 
-echo "$LOG_TAG rsync from NAS to repo (including deletions)"
-rsync -av --delete --exclude=".DS_Store" "$NAS_SRC/" "$REPO_DST/"
+sync_one () {
+  local src="$1"
+  local dst="$2"
+  local label="$3"
 
-# Stage all changes (adds, modifies, deletes) in this folder
-git add -A "_Yodeck-HTML-Slideshow_Admin/images"
+  if [[ ! -d "$src" ]]; then
+    echo "!! Missing source mount for $label: $src"
+    return 1
+  fi
 
-# If nothing actually changed, bail out
-if git diff --cached --quiet; then
-    echo "$LOG_TAG No changes to commit."
-    exit 0
+  echo "--- Sync $label ---"
+  rsync -av --delete "${RSYNC_EXCLUDES[@]}" "$src/" "$dst/"
+}
+
+cd "$REPO"
+
+# Pull latest first (avoid push rejection)
+git fetch origin main >/dev/null 2>&1 || true
+git pull --rebase origin main || true
+
+sync_one "$SRC_ADMIN" "$DST_ADMIN" "Admin"
+sync_one "$SRC_VP" "$DST_VP" "VillagePublic"
+
+# If nothing changed, exit quietly
+if git diff --quiet && git diff --cached --quiet; then
+  echo "No changes detected."
+  exit 0
 fi
 
-echo "$LOG_TAG Committing new state of images"
-git config user.name "pi-sync"
-git config user.email "pi-sync@local"
+# Commit + push (single commit for both folders)
+git add -A
 
-git commit -m "sync(Admin): auto-sync at $(date '+%Y-%m-%d %H:%M:%S')"
-echo "$LOG_TAG Pushing to GitHub"
-git push
+if git diff --cached --quiet; then
+  echo "No staged changes after add."
+  exit 0
+fi
 
-echo "$LOG_TAG Done."
-
+git commit -m "chore(sync): update watch folders [skip ci]" || true
+git push origin main
+echo "Done."
