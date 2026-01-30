@@ -77,7 +77,7 @@ while IFS='|' read -r KEY SRC_MNT DEST_REL; do
   fi
 
   # rsync → repo watch folder
-  if rsync -av --delete "${RSYNC_EXCLUDES[@]}" "$SRC" "$DEST"; then
+  if rsync -av --delete --size-only "${RSYNC_EXCLUDES[@]}" "$SRC" "$DEST"; then
     :
   fi
 
