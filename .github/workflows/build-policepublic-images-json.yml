@@ -7,9 +7,8 @@ on:
   push:
     paths:
       - "_Yodeck-HTML-Slideshow_PolicePublic/images/**"
-      - "_Yodeck-HTML-Slideshow_PolicePublic_Runtime/images/.gitkeep"
-      - "tools/gen_images_json.py"
       - "tools/build_runtime_media_policepublic.sh"
+      - "tools/gen_images_json.py"
       - ".github/workflows/build-policepublic-images-json.yml"
 
 permissions:
@@ -34,6 +33,7 @@ jobs:
 
       - name: Build Runtime media (PolicePublic)
         run: |
+          chmod +x tools/build_runtime_media_policepublic.sh
           bash tools/build_runtime_media_policepublic.sh
 
       - name: Generate images-policepublic.json from Runtime images
