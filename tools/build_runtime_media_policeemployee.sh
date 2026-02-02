@@ -4,6 +4,10 @@ set -euo pipefail
 ADMIN_DIR="_Yodeck-HTML-Slideshow_PoliceEmployee/images"
 RUNTIME_DIR="_Yodeck-HTML-Slideshow_PoliceEmployee_Runtime/images"
 
+if [[ -e "$RUNTIME_DIR" && ! -d "$RUNTIME_DIR" ]]; then
+  echo "ERROR: $RUNTIME_DIR exists but is not a directory"
+  exit 1
+fi
 mkdir -p "$RUNTIME_DIR"
 
 needs_update() {
