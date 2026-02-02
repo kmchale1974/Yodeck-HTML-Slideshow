@@ -4,9 +4,10 @@ set -euo pipefail
 ADMIN_DIR="_Yodeck-HTML-Slideshow_PoliceEmployee/images"
 RUNTIME_DIR="_Yodeck-HTML-Slideshow_PoliceEmployee_Runtime/images"
 
+# If something accidentally created a FILE at the runtime dir path, fix it.
 if [[ -e "$RUNTIME_DIR" && ! -d "$RUNTIME_DIR" ]]; then
-  echo "ERROR: $RUNTIME_DIR exists but is not a directory"
-  exit 1
+  echo "WARN: $RUNTIME_DIR exists but is not a directory. Removing and recreating..."
+  rm -f "$RUNTIME_DIR"
 fi
 mkdir -p "$RUNTIME_DIR"
 
