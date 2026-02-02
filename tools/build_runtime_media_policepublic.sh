@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ADMIN_DIR="_Yodeck-HTML-Slideshow_VillagePublic/images"
-RUNTIME_DIR="_Yodeck-HTML-Slideshow_VillagePublic_Runtime/images"
+ADMIN_DIR="_Yodeck-HTML-Slideshow_PolicePublic/images"
+RUNTIME_DIR="_Yodeck-HTML-Slideshow_PolicePublic_Runtime/images"
 
 mkdir -p "$RUNTIME_DIR"
 
@@ -14,7 +14,7 @@ needs_update() {
   return 1
 }
 
-echo "Admin:   $ADMIN_DIR"
+echo "Source:  $ADMIN_DIR"
 echo "Runtime: $RUNTIME_DIR"
 
 # ------------------------------------------------------------
