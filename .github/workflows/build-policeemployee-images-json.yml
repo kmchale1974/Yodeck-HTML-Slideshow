@@ -30,6 +30,14 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg
+      
+      - name: Debug PoliceEmployee runtime path
+        run: |
+          set -x
+          ls -lah _Yodeck-HTML-Slideshow_PoliceEmployee_Runtime || true
+          ls -lah _Yodeck-HTML-Slideshow_PoliceEmployee_Runtime/images || true
+          file _Yodeck-HTML-Slideshow_PoliceEmployee_Runtime/images || true
+          find _Yodeck-HTML-Slideshow_PoliceEmployee_Runtime -maxdepth 2 -print || true
 
       - name: Build Runtime media (PoliceEmployee)
         run: |
