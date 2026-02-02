@@ -14,7 +14,7 @@ needs_update() {
   return 1
 }
 
-echo "Admin:   $ADMIN_DIR"
+echo "Source:  $ADMIN_DIR"
 echo "Runtime: $RUNTIME_DIR"
 
 # ------------------------------------------------------------
