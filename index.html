@@ -42,6 +42,7 @@
       imagesManifest: qs.get('manifest') || 'images.json',
       defaultDuration: parseInt(qs.get('dur') || '10', 10), // seconds (images only)
       transitionMs: parseInt(qs.get('fade') || '500', 10),  // fade duration
+      transitionMode: qs.get('mode') || 'smart',             // smart | fade | cut
       refreshMinutes: parseInt(qs.get('refresh') || '10', 10),
       showCaptions: (qs.get('captions') || '1') !== '0',
       objectFit: qs.get('fit') || 'contain',               // contain | cover
@@ -52,6 +53,6 @@
   </script>
 
   <!-- Tip: if you want cache-busting, change the v= value when you deploy -->
-  <script src="script.js?v=20260127a"></script>
+  <script src="script.js?v=20260311a"></script>
 </body>
 </html>
