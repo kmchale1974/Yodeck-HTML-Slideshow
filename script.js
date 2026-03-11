@@ -332,7 +332,8 @@
     idx = (idx + 1) % items.length;
     const item = items[idx];
     const kind = inferType(item);
-    const previousKind = activeKind || kind;
+    const previousItem = idx === 0 ? items[items.length - 1] : items[idx - 1];
+    const previousKind = previousItem ? inferType(previousItem) : "image";
 
     const incoming = usingA ? A : B;
     const outgoing = usingA ? B : A;
