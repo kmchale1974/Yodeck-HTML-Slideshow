@@ -64,6 +64,7 @@
   let usingA = true;
   let timer = null;
   let repoll = null;
+  let activeKind = null;
 
   // ----------------------------
   // Helpers
@@ -347,6 +348,7 @@
 
       await crossfade(incoming, outgoing, transitionMsFor(kind, previousKind));
 
+      activeKind = kind;
       usingA = !usingA;
 
       if (kind === "video") scheduleNextForVideo(incoming, item);
@@ -368,6 +370,7 @@
       // Reset state
       idx = -1;
       usingA = true;
+      activeKind = null;
 
       // Clear both layers
       A.wrap.classList.remove("visible"); A.wrap.setAttribute("aria-hidden", "true"); hideMedia(A);
