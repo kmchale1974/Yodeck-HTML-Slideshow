@@ -7,10 +7,11 @@
   // ----------------------------
   const DEFAULT_IMAGE_SECONDS = Number.isFinite(cfg.defaultDuration) ? cfg.defaultDuration : 10;
   const FADE_MS = Math.max(0, parseInt(cfg.transitionMs ?? 500, 10));
+  const TRANSITION_MODE = String(cfg.transitionMode || "smart").toLowerCase(); // smart | fade | cut
   const REFRESH_MIN = Math.max(1, parseInt(cfg.refreshMinutes ?? 10, 10));
 
   // Start transition BEFORE video ends to hide last-frame freeze
-  const VIDEO_OUTRO_LEAD_MS = Math.min(1400, Math.max(350, Math.floor(FADE_MS * 1.2)));
+  const VIDEO_OUTRO_LEAD_MS = Math.min(2000, Math.max(500, Math.floor(FADE_MS * 1.8)));
 
   // If video metadata/duration never becomes usable, advance anyway
   const VIDEO_FAILSAFE_MS = Math.max(2500, DEFAULT_IMAGE_SECONDS * 1000);
@@ -132,6 +133,7 @@
 
     // Video
     try { target.vid.pause(); } catch {}
+    target.vid.classList.remove("media-pending");
     target.vid.classList.add("media-hidden");
     target.vid.removeAttribute("src");
     try { target.vid.load(); } catch {}
@@ -183,6 +185,7 @@
     if (!src) throw new Error("Missing video url");
 
     target.vid.classList.remove("media-hidden");
+    target.vid.classList.add("media-pending");
     target.vid.muted = true;
     target.vid.playsInline = true;
     target.vid.loop = false;
@@ -210,11 +213,22 @@
     // Give it a moment to start presenting frames before we fade it in
     await waitForVideoFrame(target.vid, 900);
     if (VIDEO_PREROLL_MS > 0) await new Promise(r => setTimeout(r, VIDEO_PREROLL_MS));
+    target.vid.classList.remove("media-pending");
   }
 
   function forceTransitionFrame(el) { void el.offsetHeight; }
 
-  async function crossfade(incoming, outgoing) {
+  function transitionMsFor(kind, previousKind) {
+    if (TRANSITION_MODE === "cut") return 0;
+    if (TRANSITION_MODE === "fade") return FADE_MS;
+
+    // smart mode: keep full fade for image->image only.
+    // Any transition involving video uses a quick near-cut for Pi stability.
+    if (kind === "image" && previousKind === "image") return FADE_MS;
+    return Math.min(120, FADE_MS);
+  }
+
+  async function crossfade(incoming, outgoing, ms) {
     incoming.wrap.style.zIndex = "2";
     outgoing.wrap.style.zIndex = "1";
 
@@ -223,10 +237,12 @@
     forceTransitionFrame(incoming.wrap);
 
     incoming.wrap.classList.add("visible");
+    incoming.wrap.style.transitionDuration = `${ms}ms`;
+    outgoing.wrap.style.transitionDuration = `${ms}ms`;
     incoming.wrap.setAttribute("aria-hidden", "false");
     outgoing.wrap.setAttribute("aria-hidden", "true");
 
-    if (FADE_MS > 0) await new Promise(r => setTimeout(r, FADE_MS));
+    if (ms > 0) await new Promise(r => setTimeout(r, ms));
 
     // Now hide outgoing and clean it up AFTER fade completes
     outgoing.wrap.classList.remove("visible");
@@ -315,6 +331,8 @@
     idx = (idx + 1) % items.length;
     const item = items[idx];
     const kind = inferType(item);
+    const previousItem = idx === 0 ? items[items.length - 1] : items[idx - 1];
+    const previousKind = previousItem ? inferType(previousItem) : "image";
 
     const incoming = usingA ? A : B;
     const outgoing = usingA ? B : A;
@@ -327,7 +345,7 @@
       if (kind === "video") await prepareVideo(incoming, item);
       else await prepareImage(incoming, item);
 
-      await crossfade(incoming, outgoing);
+      await crossfade(incoming, outgoing, transitionMsFor(kind, previousKind));
 
       usingA = !usingA;
 

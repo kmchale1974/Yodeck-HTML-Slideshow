@@ -50,6 +50,10 @@ body{
 /* Hide whichever media type isn't used for this slide */
 .media-hidden{ display: none; }
 
+/* Keep video hidden until first decoded frame is ready */
+.media-pending{ visibility: hidden; }
+
+
 /* Caption (optional) */
 .caption{
   position: absolute;
