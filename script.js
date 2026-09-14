@@ -1,30 +1,18 @@
-// script.js (drop-in, cleaned + Pi-stability tweaks + fallback banner)
+// script.js (Pi-stable playback: image fades, video cuts, non-disruptive manifest refresh)
 (() => {
   const cfg = window.SS_CONFIG || {};
 
-  // ----------------------------
-  // Config / Defaults
-  // ----------------------------
   const DEFAULT_IMAGE_SECONDS = Number.isFinite(cfg.defaultDuration) ? cfg.defaultDuration : 10;
   const FADE_MS = Math.max(0, parseInt(cfg.transitionMs ?? 500, 10));
   const TRANSITION_MODE = String(cfg.transitionMode || "smart").toLowerCase(); // smart | fade | cut
   const REFRESH_MIN = Math.max(1, parseInt(cfg.refreshMinutes ?? 10, 10));
+  const VIDEO_FAILSAFE_MS = Math.max(5000, DEFAULT_IMAGE_SECONDS * 1000);
+  const VIDEO_PREROLL_MS = 120;
 
-  // Start transition BEFORE video ends to hide last-frame freeze
-  const VIDEO_OUTRO_LEAD_MS = Math.min(2000, Math.max(500, Math.floor(FADE_MS * 1.8)));
-
-  // If video metadata/duration never becomes usable, advance anyway
-  const VIDEO_FAILSAFE_MS = Math.max(2500, DEFAULT_IMAGE_SECONDS * 1000);
-
-  // Give the video a moment to actually present frames before fading in
-  const VIDEO_PREROLL_MS = Math.min(300, Math.max(80, Math.floor(FADE_MS * 0.4)));
-
-  // Apply CSS vars used by style.css
   document.documentElement.style.setProperty("--fade-ms", `${FADE_MS}ms`);
   document.documentElement.style.setProperty("--fit", cfg.objectFit || "contain");
   document.documentElement.style.setProperty("--bg", cfg.bg || "#000");
 
-  // Status: hidden unless error
   const statusEl = document.getElementById("status");
   const setStatus = (msg) => {
     if (!statusEl) return;
@@ -39,7 +27,6 @@
     fallbackEl.classList.toggle("hidden", !show);
   };
 
-  // Cache-bust helper (use ONLY for manifest + image preload)
   function bust(url) {
     if (!url) return url;
     const sep = url.includes("?") ? "&" : "?";
@@ -60,15 +47,13 @@
   };
 
   let items = [];
+  let pendingItems = null;
   let idx = -1;
   let usingA = true;
   let timer = null;
   let repoll = null;
-  let activeKind = null;
+  let activeUrl = null;
 
-  // ----------------------------
-  // Helpers
-  // ----------------------------
   function isActiveNow(it) {
     const now = new Date();
     const enabled = it.enabled !== false;
@@ -77,12 +62,10 @@
     return enabled && startOk && endOk;
   }
 
-  // no-expiry first, then soonest expiring → latest, then start, then title
   function sortItems(arr) {
     return arr.slice().sort((x, y) => {
       const xe = x.end ? new Date(x.end) : null;
       const ye = y.end ? new Date(y.end) : null;
-
       const xt = (x.title || "").toLowerCase();
       const yt = (y.title || "").toLowerCase();
 
@@ -115,6 +98,21 @@
     return Array.isArray(json) ? json : (json.items || []);
   }
 
+  function normalizedActiveItems(manifest) {
+    return sortItems(manifest.filter(isActiveNow));
+  }
+
+  function playlistSignature(list) {
+    return JSON.stringify(list.map(it => ({
+      url: it.url || "",
+      start: it.start || "",
+      end: it.end || "",
+      durationSeconds: Number.isFinite(it.durationSeconds) ? it.durationSeconds : null,
+      enabled: it.enabled !== false,
+      title: it.title || ""
+    })));
+  }
+
   function setCaption(target, item) {
     const text = item.caption || item.title || "";
     if (cfg.showCaptions && text) {
@@ -126,18 +124,19 @@
     }
   }
 
+  function releaseVideo(v) {
+    try { v.pause(); } catch {}
+    v.classList.remove("media-pending");
+    v.classList.add("media-hidden");
+    v.removeAttribute("src");
+    try { v.load(); } catch {}
+  }
+
   function hideMedia(target) {
-    // Image
     target.img.classList.add("media-hidden");
     target.img.removeAttribute("src");
     target.img.alt = "";
-
-    // Video
-    try { target.vid.pause(); } catch {}
-    target.vid.classList.remove("media-pending");
-    target.vid.classList.add("media-hidden");
-    target.vid.removeAttribute("src");
-    try { target.vid.load(); } catch {}
+    releaseVideo(target.vid);
   }
 
   async function prepareImage(target, item) {
@@ -146,7 +145,6 @@
     const src = String(item.url || "");
     if (!src) throw new Error("Missing image url");
 
-    // Preload with cache-bust, then set real src WITHOUT bust
     const preload = new Image();
     preload.src = bust(src);
 
@@ -164,17 +162,14 @@
     }
   }
 
-  // Wait for a displayed frame (helps avoid "cut" into video)
   function waitForVideoFrame(v, timeoutMs = 900) {
     return new Promise((resolve) => {
       const start = Date.now();
-
       const tick = () => {
         if (v.videoWidth > 0 && v.readyState >= 2 && !v.paused) return resolve();
         if (Date.now() - start > timeoutMs) return resolve();
         requestAnimationFrame(tick);
       };
-
       requestAnimationFrame(tick);
     });
   }
@@ -191,8 +186,6 @@
     target.vid.playsInline = true;
     target.vid.loop = false;
     target.vid.preload = "auto";
-
-    // IMPORTANT: do NOT bust video URLs (Pi stability)
     target.vid.src = src;
     target.vid.currentTime = 0;
 
@@ -208,12 +201,9 @@
       target.vid.load();
     });
 
-    // Start playback (muted autoplay)
     try { await target.vid.play(); } catch {}
-
-    // Give it a moment to start presenting frames before we fade it in
     await waitForVideoFrame(target.vid, 900);
-    if (VIDEO_PREROLL_MS > 0) await new Promise(r => setTimeout(r, VIDEO_PREROLL_MS));
+    await new Promise(r => setTimeout(r, VIDEO_PREROLL_MS));
     target.vid.classList.remove("media-pending");
   }
 
@@ -221,113 +211,110 @@
 
   function transitionMsFor(kind, previousKind) {
     if (TRANSITION_MODE === "cut") return 0;
-    if (TRANSITION_MODE === "fade") return FADE_MS;
-
-    // smart mode: keep full fade for image->image only.
-    // Any transition involving video uses a quick near-cut for Pi stability.
     if (kind === "image" && previousKind === "image") return FADE_MS;
-    return Math.min(120, FADE_MS);
+    return 0;
   }
 
   async function crossfade(incoming, outgoing, ms) {
     incoming.wrap.style.zIndex = "2";
     outgoing.wrap.style.zIndex = "1";
 
-    // Start incoming hidden, then fade in
     incoming.wrap.classList.remove("visible");
     forceTransitionFrame(incoming.wrap);
 
-    incoming.wrap.classList.add("visible");
     incoming.wrap.style.transitionDuration = `${ms}ms`;
     outgoing.wrap.style.transitionDuration = `${ms}ms`;
+    incoming.wrap.classList.add("visible");
     incoming.wrap.setAttribute("aria-hidden", "false");
     outgoing.wrap.setAttribute("aria-hidden", "true");
 
     if (ms > 0) await new Promise(r => setTimeout(r, ms));
 
-    // Now hide outgoing and clean it up AFTER fade completes
     outgoing.wrap.classList.remove("visible");
-
-    try { outgoing.vid.pause(); } catch {}
-    outgoing.vid.removeAttribute("src");
-    try { outgoing.vid.load(); } catch {}
-    outgoing.img.removeAttribute("src");
+    hideMedia(outgoing);
   }
 
   function scheduleNextForImage(item) {
     const sec = Number.isFinite(item.durationSeconds) ? item.durationSeconds : DEFAULT_IMAGE_SECONDS;
-    const ms = Math.max(1000, sec * 1000);
     clearTimeout(timer);
-    timer = setTimeout(showNext, ms);
+    timer = setTimeout(showNext, Math.max(1000, sec * 1000));
   }
 
-  // VIDEO: fire when remaining time <= lead (timeupdate), not at ended
   function scheduleNextForVideo(target, item) {
     clearTimeout(timer);
 
     const v = target.vid;
     let fired = false;
+    let failsafeTimer = null;
+
+    const cleanup = () => {
+      try { v.removeEventListener("ended", fireOnce); } catch {}
+      try { v.removeEventListener("error", fireOnce); } catch {}
+      if (failsafeTimer) clearTimeout(failsafeTimer);
+      failsafeTimer = null;
+    };
 
     const fireOnce = () => {
       if (fired) return;
       fired = true;
       cleanup();
+      clearTimeout(timer);
+      timer = null;
+
+      // For Pi stability, never hold or fade a completed video frame.
+      // Drop to black, release the decoder, then prepare the next item.
+      target.wrap.classList.remove("visible");
+      target.wrap.setAttribute("aria-hidden", "true");
+      releaseVideo(v);
       showNext();
     };
 
-    const onEnded = () => fireOnce();
-    const leadSec = VIDEO_OUTRO_LEAD_MS / 1000;
+    v.addEventListener("ended", fireOnce, { once: true });
+    v.addEventListener("error", fireOnce, { once: true });
 
-    const onTimeUpdate = () => {
-      const d = v.duration;
-      if (!isFinite(d) || d <= 0.5) return;
-
-      const remaining = d - v.currentTime;
-      if (remaining <= leadSec) fireOnce();
-    };
-
-    const onMeta = () => {
-      const d = v.duration;
-      if (isFinite(d) && d > 0.5) {
-        const ms = Math.max(800, Math.floor(d * 1000) - VIDEO_OUTRO_LEAD_MS);
-        timer = setTimeout(fireOnce, ms);
-      } else {
-        timer = setTimeout(fireOnce, VIDEO_FAILSAFE_MS);
-      }
-    };
-
-    // ✅ cleanup DOES NOT clear the global timer (prevents races)
-    const cleanup = () => {
-      try { v.removeEventListener("timeupdate", onTimeUpdate); } catch {}
-      try { v.removeEventListener("ended", onEnded); } catch {}
-      try { v.removeEventListener("error", onEnded); } catch {}
-      try { v.removeEventListener("loadedmetadata", onMeta); } catch {}
-    };
-
-    // Respect explicit duration override if present
     if (Number.isFinite(item.durationSeconds) && item.durationSeconds > 0) {
       timer = setTimeout(fireOnce, Math.max(1000, item.durationSeconds * 1000));
-      // Absolute failsafe anyway
-      setTimeout(fireOnce, Math.floor(VIDEO_FAILSAFE_MS * 1.5));
-      return;
     }
 
-    v.addEventListener("timeupdate", onTimeUpdate);
-    v.addEventListener("ended", onEnded, { once: true });
-    v.addEventListener("error", onEnded, { once: true });
-    v.addEventListener("loadedmetadata", onMeta, { once: true });
+    const durationMs = isFinite(v.duration) && v.duration > 0.5
+      ? Math.ceil(v.duration * 1000) + 1500
+      : VIDEO_FAILSAFE_MS;
 
-    // If metadata already loaded, schedule immediately; otherwise fallback
-    if (isFinite(v.duration) && v.duration > 0.5) onMeta();
-    else timer = setTimeout(fireOnce, VIDEO_FAILSAFE_MS);
+    failsafeTimer = setTimeout(fireOnce, Math.max(VIDEO_FAILSAFE_MS, durationMs));
+  }
 
-    // ✅ True failsafe regardless of metadata weirdness
-    setTimeout(fireOnce, Math.floor(VIDEO_FAILSAFE_MS * 1.5));
+  function applyPendingPlaylist() {
+    if (!pendingItems) return true;
+
+    const next = pendingItems;
+    pendingItems = null;
+
+    if (!next.length) {
+      items = [];
+      idx = -1;
+      activeUrl = null;
+      A.wrap.classList.remove("visible"); A.wrap.setAttribute("aria-hidden", "true"); hideMedia(A);
+      B.wrap.classList.remove("visible"); B.wrap.setAttribute("aria-hidden", "true"); hideMedia(B);
+      showFallback(true);
+      return false;
+    }
+
+    const currentIndex = activeUrl
+      ? next.findIndex(it => String(it.url || "") === activeUrl)
+      : -1;
+
+    items = next;
+    idx = currentIndex;
+    showFallback(false);
+    return true;
   }
 
   async function showNext() {
-    if (!items.length) return;
     clearTimeout(timer);
+    timer = null;
+
+    if (!applyPendingPlaylist()) return;
+    if (!items.length) return;
 
     idx = (idx + 1) % items.length;
     const item = items[idx];
@@ -339,21 +326,19 @@
     const outgoing = usingA ? B : A;
 
     try {
-      setStatus(""); // hide error banner
+      setStatus("");
       setCaption(incoming, item);
 
-      // Prepare media first (avoid flash/cut), then fade
       if (kind === "video") await prepareVideo(incoming, item);
       else await prepareImage(incoming, item);
 
       await crossfade(incoming, outgoing, transitionMsFor(kind, previousKind));
 
-      activeKind = kind;
+      activeUrl = String(item.url || "");
       usingA = !usingA;
 
       if (kind === "video") scheduleNextForVideo(incoming, item);
       else scheduleNextForImage(item);
-
     } catch (e) {
       console.warn(e);
       setStatus(`Media error: ${e?.message || String(e)}`);
@@ -365,14 +350,12 @@
   async function loadAndStart() {
     try {
       const manifest = await fetchManifest();
-      items = sortItems(manifest.filter(isActiveNow));
-
-      // Reset state
+      items = normalizedActiveItems(manifest);
+      pendingItems = null;
       idx = -1;
       usingA = true;
-      activeKind = null;
+      activeUrl = null;
 
-      // Clear both layers
       A.wrap.classList.remove("visible"); A.wrap.setAttribute("aria-hidden", "true"); hideMedia(A);
       B.wrap.classList.remove("visible"); B.wrap.setAttribute("aria-hidden", "true"); hideMedia(B);
 
@@ -390,12 +373,27 @@
     }
   }
 
-  function scheduleRepoll() {
-    if (repoll) clearInterval(repoll);
-    repoll = setInterval(loadAndStart, REFRESH_MIN * 60 * 1000);
+  async function repollManifest() {
+    try {
+      const manifest = await fetchManifest();
+      const next = normalizedActiveItems(manifest);
+      const baseline = pendingItems || items;
+
+      if (playlistSignature(next) !== playlistSignature(baseline)) {
+        // Do not tear down the current slide/video. Apply the new playlist
+        // cleanly at the next normal slide boundary.
+        pendingItems = next;
+      }
+    } catch (err) {
+      console.warn("Manifest refresh failed:", err);
+    }
   }
 
-  // Go
+  function scheduleRepoll() {
+    if (repoll) clearInterval(repoll);
+    repoll = setInterval(repollManifest, REFRESH_MIN * 60 * 1000);
+  }
+
   loadAndStart();
   scheduleRepoll();
 })();
