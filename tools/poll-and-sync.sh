@@ -44,6 +44,8 @@ RSYNC_EXCLUDES=(
   "--exclude=._*"
   "--exclude=.DS_Store"
   "--exclude=_Naming Conventions.txt"
+  "--filter=protect *.mp4"
+  "--exclude=*.mp4"
 )
 
 # Config format:

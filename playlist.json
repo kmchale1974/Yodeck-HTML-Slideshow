@@ -1,0 +1,77 @@
+{
+  "generated": "2026-10-07T16:10:13.303829-05:00",
+  "default_priority": 500,
+  "default_duration": 10,
+  "items": [
+    {
+      "filename": "2026-01-20_to_2026-12-31_Connect with Us__P1__.png",
+      "type": "image",
+      "priority": 1,
+      "duration": 10,
+      "start": "2026-01-20",
+      "end": "2026-12-31",
+      "size": 200353,
+      "modified": "2025-10-06T10:39:17"
+    },
+    {
+      "filename": "2026-09-14_to_2026-12-05_HolidayMarket.png",
+      "type": "image",
+      "priority": 500,
+      "duration": 10,
+      "start": "2026-09-14",
+      "end": "2026-12-05",
+      "size": 1809038,
+      "modified": "2026-08-20T10:52:09"
+    },
+    {
+      "filename": "2026-09-14_to_2026-12-05_Holiday Paradey.png",
+      "type": "image",
+      "priority": 500,
+      "duration": 10,
+      "start": "2026-09-14",
+      "end": "2026-12-05",
+      "size": 1432542,
+      "modified": "2026-08-20T08:52:18"
+    },
+    {
+      "filename": "2026-09-14_to_2026-12-18_Dive-In-Movie_Zootopia_Yodeck.png",
+      "type": "image",
+      "priority": 500,
+      "duration": 10,
+      "start": "2026-09-14",
+      "end": "2026-12-18",
+      "size": 1606167,
+      "modified": "2026-07-20T10:00:21"
+    },
+    {
+      "filename": "2026-09-14_to_2026-12-31_Projects Map.png",
+      "type": "image",
+      "priority": 500,
+      "duration": 10,
+      "start": "2026-09-14",
+      "end": "2026-12-31",
+      "size": 1317955,
+      "modified": "2025-10-06T10:43:14"
+    },
+    {
+      "filename": "2026-09-14_to_2027-04-30_YouthPublicSafetyAcademy-01.mp4",
+      "type": "video",
+      "priority": 500,
+      "duration": null,
+      "start": "2026-09-14",
+      "end": "2027-04-30",
+      "size": 246950372,
+      "modified": "2026-07-15T13:59:35"
+    },
+    {
+      "filename": "2026-09-14_to_2027-04-30_WaterQualityReport2025.png",
+      "type": "image",
+      "priority": 500,
+      "duration": 10,
+      "start": "2026-09-14",
+      "end": "2027-04-30",
+      "size": 1684488,
+      "modified": "2026-04-22T08:19:00"
+    }
+  ]
+}
