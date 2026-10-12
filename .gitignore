@@ -3,8 +3,16 @@
 __pycache__/
 *.pyc
 # Large signage videos are cached locally on Pi players, not stored in GitHub
+# Never publish video files from the Admin or Runtime folders
 _Yodeck-HTML-Slideshow_Admin/images/*.mp4
+_Yodeck-HTML-Slideshow_Admin/images/*.mov
+_Yodeck-HTML-Slideshow_Admin/images/*.webm
+_Yodeck-HTML-Slideshow_Admin/images/*.m4v
+
 _Yodeck-HTML-Slideshow_Runtime/images/*.mp4
+_Yodeck-HTML-Slideshow_Runtime/images/*.mov
+_Yodeck-HTML-Slideshow_Runtime/images/*.webm
+_Yodeck-HTML-Slideshow_Runtime/images/*.m4v
 
 # Temporary playlist generator testing
 tools/playlist-v2-test/

@@ -58,8 +58,10 @@ RSYNC_EXCLUDES=(
   "--exclude=._*"
   "--exclude=.DS_Store"
   "--exclude=_Naming Conventions.txt"
-  "--filter=protect *.mp4"
   "--exclude=*.mp4"
+  "--exclude=*.mov"
+  "--exclude=*.webm"
+  "--exclude=*.m4v"
 )
 
 # Config format:
@@ -76,10 +78,9 @@ while IFS='|' read -r KEY SRC_MNT DEST_REL; do
   echo "   from: $SRC"
   echo "     to: $DEST"
 
-  if [[ ! -d "$SRC_MNT" ]]; then
-    echo "   !! missing mount dir: $SRC_MNT (skipping)"
-    echo
-    continue
+  if ! mountpoint -q "$SRC_MNT"; then
+    echo "ERROR: NAS source is not mounted: $SRC_MNT"
+    exit 1
   fi
 
   mkdir -p "$DEST"
@@ -93,9 +94,7 @@ while IFS='|' read -r KEY SRC_MNT DEST_REL; do
   fi
 
   # rsync → repo watch folder
-  if rsync -av --delete --checksum "${RSYNC_EXCLUDES[@]}" "$SRC" "$DEST"; then
-    :
-  fi
+  rsync -av --delete --checksum "${RSYNC_EXCLUDES[@]}" "$SRC" "$DEST"
 
   # Detect changes
   if ! git diff --quiet -- "$DEST_REL"; then
