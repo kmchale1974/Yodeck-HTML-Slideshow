@@ -87,10 +87,9 @@ while IFS='|' read -r KEY SRC_MNT DEST_REL; do
 
   # If mount exists but is empty due to mount failure, you may want to skip.
   # This check helps avoid deleting repo files if the mount is accidentally empty.
-  if [[ -z "$(ls -A "$SRC_MNT" 2>/dev/null || true)" ]]; then
-    echo "   !! mount appears empty: $SRC_MNT (skipping to avoid deletes)"
-    echo
-    continue
+  if [[ -z "$(ls -A "$SRC_MNT" 2>/dev/null)" ]]; then
+    echo "ERROR: NAS source is unexpectedly empty: $SRC_MNT"
+    exit 1
   fi
 
   # rsync → repo watch folder
