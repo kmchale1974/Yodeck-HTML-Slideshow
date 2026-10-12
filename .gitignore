@@ -5,3 +5,6 @@ __pycache__/
 # Large signage videos are cached locally on Pi players, not stored in GitHub
 _Yodeck-HTML-Slideshow_Admin/images/*.mp4
 _Yodeck-HTML-Slideshow_Runtime/images/*.mp4
+
+# Temporary playlist generator testing
+tools/playlist-v2-test/
