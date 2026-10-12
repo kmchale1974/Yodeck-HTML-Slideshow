@@ -145,20 +145,22 @@ fi
 
 echo "-- Commit & push changes"
 
+echo "-- Check for media or playlist changes"
+
 # Stage only the media and playlist managed by this script.
 git add -A -- \
   _Yodeck-HTML-Slideshow_Admin/images \
   _Yodeck-HTML-Slideshow_Runtime/images \
   playlist.json
 
-# Detect all staged additions, modifications, and deletions.
-echo "-- Changes detected; preparing commit"
-git diff --cached --stat
-
+# Exit cleanly when nothing has changed.
 if git diff --cached --quiet; then
-  echo "Nothing staged after add (unexpected). Done."
+  echo "-- No media or playlist changes. Nothing to publish."
   exit 0
 fi
+
+echo "-- Changes detected; preparing commit"
+git diff --cached --stat
 
 git config user.name "signage-sync"
 git config user.email "signage-sync@users.noreply.github.com"
