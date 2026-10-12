@@ -1,17 +1,7 @@
-name: Build Admin images.json (Runtime Pi-safe)
-
+# Admin runtime publishing is being migrated to the Pi Zero 2.
+# Retain this workflow for manual rollback only.
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "*/5 * * * *"
-  push:
-    paths:
-      - "_Yodeck-HTML-Slideshow_Admin/images/**"
-      - "_Yodeck-HTML-Slideshow_Runtime/images/.gitkeep"
-      - "tools/gen_images_json.py"
-      - "tools/build_runtime_media.sh"
-      - ".github/workflows/build-admin-images-json.yml"
-
 permissions:
   contents: write
 
