@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-14T15:37:29.503486-05:00",
+  "generated": "2026-10-14T16:03:55.212568-05:00",
   "default_priority": 500,
   "default_duration": 10,
   "items": [
@@ -52,16 +52,6 @@
       "end": "2026-12-31",
       "size": 1317955,
       "modified": "2025-10-06T10:43:14"
-    },
-    {
-      "filename": "2026-09-14_to_2027-04-30_YouthPublicSafetyAcademy-01.mp4",
-      "type": "video",
-      "priority": 500,
-      "duration": null,
-      "start": "2026-09-14",
-      "end": "2027-04-30",
-      "size": 246950372,
-      "modified": "2026-07-15T13:59:35"
     },
     {
       "filename": "2026-09-14_to_2027-04-30_WaterQualityReport2025.png",
