@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-16T15:20:13.379623-05:00",
+  "generated": "2026-10-16T17:46:59.784918-05:00",
   "default_priority": 500,
   "default_duration": 10,
   "items": [
@@ -24,34 +24,34 @@
       "modified": "2026-10-14T15:32:18"
     },
     {
-      "filename": "2026-10-16_to_2026-10-21_VBM.png",
+      "filename": "2026-10-16_to_2026-10-30_Halloween Registry.png",
       "type": "image",
       "priority": 500,
       "duration": 10,
       "start": "2026-10-16",
-      "end": "2026-10-21",
-      "size": 5383751,
-      "modified": "2025-12-09T15:07:35"
+      "end": "2026-10-30",
+      "size": 377672,
+      "modified": "2026-09-16T11:28:45"
     },
     {
-      "filename": "2026-10-22_to_2026-11-04_VBM.png",
-      "type": "image",
-      "priority": 500,
-      "duration": 10,
-      "start": "2026-10-22",
-      "end": "2026-11-04",
-      "size": 5383754,
-      "modified": "2025-12-09T15:05:41"
-    },
-    {
-      "filename": "2026-10-16_to_2026-11-04_WOLD-WWII_Nurses.png",
+      "filename": "2026-10-16_to_2026-10-30_Holiday Card Contest.png",
       "type": "image",
       "priority": 500,
       "duration": 10,
       "start": "2026-10-16",
-      "end": "2026-11-04",
-      "size": 2207830,
-      "modified": "2026-10-16T15:19:41"
+      "end": "2026-10-30",
+      "size": 326008,
+      "modified": "2026-10-16T12:53:02"
+    },
+    {
+      "filename": "2026-10-16_to_2026-10-31_October 2026 Milestone Anniversaries - 10.png",
+      "type": "image",
+      "priority": 500,
+      "duration": 10,
+      "start": "2026-10-16",
+      "end": "2026-10-31",
+      "size": 426580,
+      "modified": "2026-10-16T15:23:52"
     },
     {
       "filename": "2026-10-16_to_2026-11-05_Veterans Day Video Tribute.png",
@@ -64,74 +64,14 @@
       "modified": "2026-09-16T13:38:07"
     },
     {
-      "filename": "2026-10-16_to_2026-11-05_WOLD-Diwali_Celebration.png",
+      "filename": "2026-10-16_to_2026-11-12_MattMurtaughNewHire.png",
       "type": "image",
       "priority": 500,
       "duration": 10,
       "start": "2026-10-16",
-      "end": "2026-11-05",
-      "size": 171967,
-      "modified": "2026-10-16T15:18:28"
-    },
-    {
-      "filename": "2026-10-16_to_2026-11-11_Veterans Breakfast.png",
-      "type": "image",
-      "priority": 500,
-      "duration": 10,
-      "start": "2026-10-16",
-      "end": "2026-11-11",
-      "size": 2508374,
-      "modified": "2026-07-06T15:16:15"
-    },
-    {
-      "filename": "2026-10-16_to_2026-11-13_Dive-In-Movie_Toy-Story_Yodeck.png",
-      "type": "image",
-      "priority": 500,
-      "duration": 10,
-      "start": "2026-10-16",
-      "end": "2026-11-13",
-      "size": 1605952,
-      "modified": "2026-07-20T09:59:29"
-    },
-    {
-      "filename": "2026-11-05_to_2026-11-18_VBM.png",
-      "type": "image",
-      "priority": 500,
-      "duration": 10,
-      "start": "2026-11-05",
-      "end": "2026-11-18",
-      "size": 5399742,
-      "modified": "2025-12-09T15:04:57"
-    },
-    {
-      "filename": "2026-10-16_to_2026-11-19_Holiday Tree Lighting.png",
-      "type": "image",
-      "priority": 500,
-      "duration": 10,
-      "start": "2026-10-16",
-      "end": "2026-11-19",
-      "size": 2474934,
-      "modified": "2026-08-17T13:40:42"
-    },
-    {
-      "filename": "2026-10-16_to_2026-11-20_Bingo-Night_Yodeck.png",
-      "type": "image",
-      "priority": 500,
-      "duration": 10,
-      "start": "2026-10-16",
-      "end": "2026-11-20",
-      "size": 327063,
-      "modified": "2026-07-20T11:03:07"
-    },
-    {
-      "filename": "2026-10-18_to_2026-11-21_OHara Woods Workday.png",
-      "type": "image",
-      "priority": 500,
-      "duration": 10,
-      "start": "2026-10-18",
-      "end": "2026-11-21",
-      "size": 4206655,
-      "modified": "2026-10-16T15:10:55"
+      "end": "2026-11-12",
+      "size": 1260481,
+      "modified": "2026-10-16T15:31:38"
     },
     {
       "filename": "2026-10-27_to_2026-11-27_Thanksgiving Closed.png",
@@ -144,74 +84,14 @@
       "modified": "2026-10-16T15:02:57"
     },
     {
-      "filename": "2026-09-14_to_2026-12-05_HolidayMarket.png",
-      "type": "image",
-      "priority": 500,
-      "duration": 10,
-      "start": "2026-09-14",
-      "end": "2026-12-05",
-      "size": 1809038,
-      "modified": "2026-08-20T10:52:09"
-    },
-    {
-      "filename": "2026-10-16_to_2026-12-05_Holiday Parade.png",
+      "filename": "2026-10-16_to_2026-12-11_Yard Waste.png",
       "type": "image",
       "priority": 500,
       "duration": 10,
       "start": "2026-10-16",
-      "end": "2026-12-05",
-      "size": 1432542,
-      "modified": "2026-08-20T08:52:18"
-    },
-    {
-      "filename": "2026-10-16_to_2026-12-05_HolidayMarket_Yodeck.png",
-      "type": "image",
-      "priority": 500,
-      "duration": 10,
-      "start": "2026-10-16",
-      "end": "2026-12-05",
-      "size": 1809038,
-      "modified": "2026-10-16T15:06:15"
-    },
-    {
-      "filename": "2026-10-16_to_2026-12-05_Winter Wonderland.png",
-      "type": "image",
-      "priority": 500,
-      "duration": 10,
-      "start": "2026-10-16",
-      "end": "2026-12-05",
-      "size": 1316727,
-      "modified": "2026-08-17T16:39:02"
-    },
-    {
-      "filename": "2026-12-02_to_2026-12-16_VBM.png",
-      "type": "image",
-      "priority": 500,
-      "duration": 10,
-      "start": "2026-12-02",
-      "end": "2026-12-16",
-      "size": 5395971,
-      "modified": "2025-12-09T15:02:56"
-    },
-    {
-      "filename": "2026-10-16_to_2026-12-18_Dive-In-Movie_Zootopia_Yodeck.png",
-      "type": "image",
-      "priority": 500,
-      "duration": 10,
-      "start": "2026-10-16",
-      "end": "2026-12-18",
-      "size": 1606167,
-      "modified": "2026-07-20T10:00:21"
-    },
-    {
-      "filename": "2026-11-19_to_2026-12-19_OHara Woods Workday.png",
-      "type": "image",
-      "priority": 500,
-      "duration": 10,
-      "start": "2026-11-19",
-      "end": "2026-12-19",
-      "size": 4206016,
-      "modified": "2026-10-16T15:00:37"
+      "end": "2026-12-11",
+      "size": 3439258,
+      "modified": "2026-02-17T15:45:44"
     },
     {
       "filename": "2026-11-25_to_2026-12-25_Christmas Closed.png",
@@ -254,6 +134,16 @@
       "modified": "2026-08-18T13:26:36"
     },
     {
+      "filename": "2026-10-16_to_2027-01-31_VBP.png",
+      "type": "image",
+      "priority": 500,
+      "duration": 10,
+      "start": "2026-10-16",
+      "end": "2027-01-31",
+      "size": 995821,
+      "modified": "2026-10-16T15:24:57"
+    },
+    {
       "filename": "2026-09-14_to_2027-04-30_WaterQualityReport2025.png",
       "type": "image",
       "priority": 500,
@@ -262,6 +152,36 @@
       "end": "2027-04-30",
       "size": 1684488,
       "modified": "2026-04-22T08:19:00"
+    },
+    {
+      "filename": "2026-01-20_to_2027-12-31_Prescription Drug Collection Program_YoDeck 2024.png",
+      "type": "image",
+      "priority": 500,
+      "duration": 10,
+      "start": "2026-01-20",
+      "end": "2027-12-31",
+      "size": 2899775,
+      "modified": "2026-10-16T15:29:28"
+    },
+    {
+      "filename": "2026-01-20_to_2027-12-31_Projects Map.png",
+      "type": "image",
+      "priority": 500,
+      "duration": 10,
+      "start": "2026-01-20",
+      "end": "2027-12-31",
+      "size": 1317955,
+      "modified": "2025-10-06T10:43:14"
+    },
+    {
+      "filename": "2026-01-20_to_2027-12-31_RAEC Shooting Lab.png",
+      "type": "image",
+      "priority": 500,
+      "duration": 10,
+      "start": "2026-01-20",
+      "end": "2027-12-31",
+      "size": 2170041,
+      "modified": "2025-10-06T13:47:15"
     }
   ]
 }
