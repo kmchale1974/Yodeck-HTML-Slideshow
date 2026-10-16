@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-16T15:15:01.994081-05:00",
+  "generated": "2026-10-16T15:20:13.379623-05:00",
   "default_priority": 500,
   "default_duration": 10,
   "items": [
@@ -42,6 +42,56 @@
       "end": "2026-11-04",
       "size": 5383754,
       "modified": "2025-12-09T15:05:41"
+    },
+    {
+      "filename": "2026-10-16_to_2026-11-04_WOLD-WWII_Nurses.png",
+      "type": "image",
+      "priority": 500,
+      "duration": 10,
+      "start": "2026-10-16",
+      "end": "2026-11-04",
+      "size": 2207830,
+      "modified": "2026-10-16T15:19:41"
+    },
+    {
+      "filename": "2026-10-16_to_2026-11-05_Veterans Day Video Tribute.png",
+      "type": "image",
+      "priority": 500,
+      "duration": 10,
+      "start": "2026-10-16",
+      "end": "2026-11-05",
+      "size": 1000001,
+      "modified": "2026-09-16T13:38:07"
+    },
+    {
+      "filename": "2026-10-16_to_2026-11-05_WOLD-Diwali_Celebration.png",
+      "type": "image",
+      "priority": 500,
+      "duration": 10,
+      "start": "2026-10-16",
+      "end": "2026-11-05",
+      "size": 171967,
+      "modified": "2026-10-16T15:18:28"
+    },
+    {
+      "filename": "2026-10-16_to_2026-11-11_Veterans Breakfast.png",
+      "type": "image",
+      "priority": 500,
+      "duration": 10,
+      "start": "2026-10-16",
+      "end": "2026-11-11",
+      "size": 2508374,
+      "modified": "2026-07-06T15:16:15"
+    },
+    {
+      "filename": "2026-10-16_to_2026-11-13_Dive-In-Movie_Toy-Story_Yodeck.png",
+      "type": "image",
+      "priority": 500,
+      "duration": 10,
+      "start": "2026-10-16",
+      "end": "2026-11-13",
+      "size": 1605952,
+      "modified": "2026-07-20T09:59:29"
     },
     {
       "filename": "2026-11-05_to_2026-11-18_VBM.png",
@@ -192,6 +242,16 @@
       "end": "2027-01-01",
       "size": 2583229,
       "modified": "2026-10-16T14:56:16"
+    },
+    {
+      "filename": "2026-10-16_to_2027-01-03_Festival of Lights.png",
+      "type": "image",
+      "priority": 500,
+      "duration": 10,
+      "start": "2026-10-16",
+      "end": "2027-01-03",
+      "size": 2997502,
+      "modified": "2026-08-18T13:26:36"
     },
     {
       "filename": "2026-09-14_to_2027-04-30_WaterQualityReport2025.png",
