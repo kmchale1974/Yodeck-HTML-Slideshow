@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-16T14:59:00.383583-05:00",
+  "generated": "2026-10-16T15:04:13.403370-05:00",
   "default_priority": 500,
   "default_duration": 10,
   "items": [
@@ -24,6 +24,16 @@
       "modified": "2026-10-14T15:32:18"
     },
     {
+      "filename": "2026-10-27_to_2026-11-27_Thanksgiving Closed.png",
+      "type": "image",
+      "priority": 500,
+      "duration": 10,
+      "start": "2026-10-27",
+      "end": "2026-11-27",
+      "size": 1025213,
+      "modified": "2026-10-16T15:02:57"
+    },
+    {
       "filename": "2026-09-14_to_2026-12-05_HolidayMarket.png",
       "type": "image",
       "priority": 500,
@@ -44,6 +54,16 @@
       "modified": "2026-08-20T08:52:18"
     },
     {
+      "filename": "2026-12-02_to_2026-12-16_VBM.png",
+      "type": "image",
+      "priority": 500,
+      "duration": 10,
+      "start": "2026-12-02",
+      "end": "2026-12-16",
+      "size": 5395971,
+      "modified": "2025-12-09T15:02:56"
+    },
+    {
       "filename": "2026-09-14_to_2026-12-18_Dive-In-Movie_Zootopia_Yodeck.png",
       "type": "image",
       "priority": 500,
@@ -52,6 +72,26 @@
       "end": "2026-12-18",
       "size": 1606167,
       "modified": "2026-07-20T10:00:21"
+    },
+    {
+      "filename": "2026-11-19_to_2026-12-19_OHara Woods Workday.png",
+      "type": "image",
+      "priority": 500,
+      "duration": 10,
+      "start": "2026-11-19",
+      "end": "2026-12-19",
+      "size": 4206016,
+      "modified": "2026-10-16T15:00:37"
+    },
+    {
+      "filename": "2026-11-25_to_2026-12-25_Christmas Closed.png",
+      "type": "image",
+      "priority": 500,
+      "duration": 10,
+      "start": "2026-11-25",
+      "end": "2026-12-25",
+      "size": 2665696,
+      "modified": "2026-10-16T14:59:14"
     },
     {
       "filename": "2026-09-14_to_2026-12-31_Projects Map.png",
