@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-16T15:04:13.403370-05:00",
+  "generated": "2026-10-16T15:09:40.428123-05:00",
   "default_priority": 500,
   "default_duration": 10,
   "items": [
@@ -24,6 +24,16 @@
       "modified": "2026-10-14T15:32:18"
     },
     {
+      "filename": "2026-10-16_to_2026-10-21_VBM.png",
+      "type": "image",
+      "priority": 500,
+      "duration": 10,
+      "start": "2026-10-16",
+      "end": "2026-10-21",
+      "size": 5383751,
+      "modified": "2025-12-09T15:07:35"
+    },
+    {
       "filename": "2026-10-27_to_2026-11-27_Thanksgiving Closed.png",
       "type": "image",
       "priority": 500,
@@ -44,14 +54,34 @@
       "modified": "2026-08-20T10:52:09"
     },
     {
-      "filename": "2026-09-14_to_2026-12-05_Holiday Paradey.png",
+      "filename": "2026-10-16_to_2026-12-05_Holiday Parade.png",
       "type": "image",
       "priority": 500,
       "duration": 10,
-      "start": "2026-09-14",
+      "start": "2026-10-16",
       "end": "2026-12-05",
       "size": 1432542,
       "modified": "2026-08-20T08:52:18"
+    },
+    {
+      "filename": "2026-10-16_to_2026-12-05_HolidayMarket_Yodeck.png",
+      "type": "image",
+      "priority": 500,
+      "duration": 10,
+      "start": "2026-10-16",
+      "end": "2026-12-05",
+      "size": 1809038,
+      "modified": "2026-10-16T15:06:15"
+    },
+    {
+      "filename": "2026-10-16_to_2026-12-05_Winter Wonderland.png",
+      "type": "image",
+      "priority": 500,
+      "duration": 10,
+      "start": "2026-10-16",
+      "end": "2026-12-05",
+      "size": 1316727,
+      "modified": "2026-08-17T16:39:02"
     },
     {
       "filename": "2026-12-02_to_2026-12-16_VBM.png",
@@ -64,11 +94,11 @@
       "modified": "2025-12-09T15:02:56"
     },
     {
-      "filename": "2026-09-14_to_2026-12-18_Dive-In-Movie_Zootopia_Yodeck.png",
+      "filename": "2026-10-16_to_2026-12-18_Dive-In-Movie_Zootopia_Yodeck.png",
       "type": "image",
       "priority": 500,
       "duration": 10,
-      "start": "2026-09-14",
+      "start": "2026-10-16",
       "end": "2026-12-18",
       "size": 1606167,
       "modified": "2026-07-20T10:00:21"
