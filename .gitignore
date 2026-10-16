@@ -16,3 +16,6 @@ _Yodeck-HTML-Slideshow_Runtime/images/*.m4v
 
 # Temporary playlist generator testing
 tools/playlist-v2-test/
+
+# Windows thumbnail cache files
+Thumbs.db
