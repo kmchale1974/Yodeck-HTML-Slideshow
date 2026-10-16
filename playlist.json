@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-16T15:09:40.428123-05:00",
+  "generated": "2026-10-16T15:15:01.994081-05:00",
   "default_priority": 500,
   "default_duration": 10,
   "items": [
@@ -32,6 +32,56 @@
       "end": "2026-10-21",
       "size": 5383751,
       "modified": "2025-12-09T15:07:35"
+    },
+    {
+      "filename": "2026-10-22_to_2026-11-04_VBM.png",
+      "type": "image",
+      "priority": 500,
+      "duration": 10,
+      "start": "2026-10-22",
+      "end": "2026-11-04",
+      "size": 5383754,
+      "modified": "2025-12-09T15:05:41"
+    },
+    {
+      "filename": "2026-11-05_to_2026-11-18_VBM.png",
+      "type": "image",
+      "priority": 500,
+      "duration": 10,
+      "start": "2026-11-05",
+      "end": "2026-11-18",
+      "size": 5399742,
+      "modified": "2025-12-09T15:04:57"
+    },
+    {
+      "filename": "2026-10-16_to_2026-11-19_Holiday Tree Lighting.png",
+      "type": "image",
+      "priority": 500,
+      "duration": 10,
+      "start": "2026-10-16",
+      "end": "2026-11-19",
+      "size": 2474934,
+      "modified": "2026-08-17T13:40:42"
+    },
+    {
+      "filename": "2026-10-16_to_2026-11-20_Bingo-Night_Yodeck.png",
+      "type": "image",
+      "priority": 500,
+      "duration": 10,
+      "start": "2026-10-16",
+      "end": "2026-11-20",
+      "size": 327063,
+      "modified": "2026-07-20T11:03:07"
+    },
+    {
+      "filename": "2026-10-18_to_2026-11-21_OHara Woods Workday.png",
+      "type": "image",
+      "priority": 500,
+      "duration": 10,
+      "start": "2026-10-18",
+      "end": "2026-11-21",
+      "size": 4206655,
+      "modified": "2026-10-16T15:10:55"
     },
     {
       "filename": "2026-10-27_to_2026-11-27_Thanksgiving Closed.png",
