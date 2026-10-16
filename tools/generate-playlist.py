@@ -9,19 +9,27 @@ OUTPUT = Path(__file__).resolve().parent.parent / "playlist.json"
 
 DEFAULT_PRIORITY = 500
 DEFAULT_DURATION = 10
+DEFAULT_TRANSITION = {
+    "mode": "slide",
+    "direction": "right",
+    "duration_ms": 1000
+}
 
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
 VIDEO_EXTS = {".mp4", ".mov", ".webm", ".m4v"}
 
 NAME_RE = re.compile(
     r"^(\d{4}-\d{2}-\d{2})_to_"
-    r"(\d{4}-\d{2}-\d{2}|FOREVER)_(.+)$",
+    r"(\d{4}-\d{2}-\d{2}(?:T\d{2}-\d{2})?|FOREVER)_(.+)$",
     re.IGNORECASE
 )
 
 PRIORITY_RE = re.compile(r"__P(\d+)__", re.IGNORECASE)
 DURATION_RE = re.compile(r"__(\d+)s__", re.IGNORECASE)
-
+TRANSITION_RE = re.compile(
+    r"__(fade|cut|slide|wipe)(?:-(left|right|up|down))?__",
+    re.IGNORECASE
+)
 
 def build_playlist():
     items = []
@@ -46,13 +54,17 @@ def build_playlist():
         try:
             datetime.strptime(start, "%Y-%m-%d")
             if end.upper() != "FOREVER":
-                datetime.strptime(end, "%Y-%m-%d")
+                if "T" in end.upper():
+                    datetime.strptime(end.upper(), "%Y-%m-%dT%H-%M")
+                else:
+                    datetime.strptime(end, "%Y-%m-%d")
         except ValueError:
             print(f"Skipping invalid date: {path.name}")
             continue
 
         priority_match = PRIORITY_RE.search(title)
         duration_match = DURATION_RE.search(title)
+        transition_match = TRANSITION_RE.search(title)
 
         priority = (
             int(priority_match.group(1))
@@ -67,6 +79,15 @@ def build_playlist():
             if duration_match else DEFAULT_DURATION
         )
 
+        transition = None
+
+        if transition_match:
+            transition = {
+                "mode": transition_match.group(1).lower()
+            }
+
+            if transition_match.group(2):
+                transition["direction"] = transition_match.group(2).lower()
         stat = path.stat()
 
         items.append({
@@ -74,8 +95,14 @@ def build_playlist():
             "type": media_type,
             "priority": priority,
             "duration": duration,
+            "transition": transition,
             "start": start,
-            "end": None if end.upper() == "FOREVER" else end,
+            "end": (
+                None if end.upper() == "FOREVER"
+                else end[:11] + end[11:].replace("-", ":")
+                if "T" in end.upper()
+                else end
+            ),
             "size": stat.st_size,
             "modified": datetime.fromtimestamp(
                 stat.st_mtime
@@ -101,6 +128,7 @@ def build_playlist():
         "generated": datetime.now().astimezone().isoformat(),
         "default_priority": DEFAULT_PRIORITY,
         "default_duration": DEFAULT_DURATION,
+        "default_transition": DEFAULT_TRANSITION,
         "items": items
     }
 
@@ -110,6 +138,7 @@ def build_playlist():
         if (
             existing.get("default_priority") == DEFAULT_PRIORITY
             and existing.get("default_duration") == DEFAULT_DURATION
+            and existing.get("default_transition") == DEFAULT_TRANSITION
             and existing.get("items") == items
         ):
             print("No media changes detected. Playlist unchanged.")
